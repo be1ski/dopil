@@ -240,6 +240,11 @@ grep -n '^service_tier' ~/.codex/config.toml
 If the value is not `default` — tell the user once that the review will run on this tier and the limit
 is used up faster; do not change the config.
 
+**A reopened Claude worker does not keep its permission mode.** Orca resumes the session without the
+permission flag of the first start, so the worker runs in the default mode of the user's Claude Code settings.
+A reopened worker that goes silent may be waiting for an approval in its tab: tell the user to look there
+before treating it as stuck.
+
 ## If the worker did not start
 
 `worker-start` returned an error or `outcome_unknown` — do not restart it. The error does not prove
