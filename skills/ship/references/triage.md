@@ -65,6 +65,10 @@ Stop the loop and escalate both positions if:
 - the same finding (in substance, regardless of wording) has survived **3 rounds**;
 - with open findings remaining, a completed round produced neither an edit nor a justified rejection;
 - the number of open findings did not decrease over the last two rounds;
+- verification has answered NOT RESOLVED to every line still open in the gate ledger, and each of them was
+  rejected because it reopens a scope or product choice the user has already made explicitly — in the spec, the
+  task or an earlier answer: the gate stays open and the work is reported as unfinished, without asking for that
+  choice again;
 - file edits are claimed, but the exact bytes of the scope did not change after the fix. For git, compare the
   `git diff <gate base> -- <paths>` saved before the fix with the current one (or the hashes of these diffs
   without whitespace normalization); the fixed base includes the index and commits made during the work. For

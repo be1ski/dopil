@@ -43,14 +43,23 @@ fall within its scope. The Execution Handoff from writing-plans is not performed
 already chosen by invoking ship; after a clean plan gate go straight to the worktree and
 subagent-driven-development. The spec and the plan are written in the main tree and committed **before** the
 worktree is created — as a separate commit and only with their own paths; do not sweep anything else from the
-working tree into it: the tree is created from HEAD, and an uncommitted plan simply will not be in it. The line
-about the worktree context in writing-plans itself is deliberately overridden here — it is worded differently
-in different copies of superpowers; the order is set by ship.
+working tree into it: the tree is created from HEAD, and an uncommitted plan simply will not be in it. Ship does
+not edit or commit a repository file that is not part of the work, the repository's `.gitignore` included: a
+spec or plan whose path git ignores (`git check-ignore`) stays uncommitted and is passed to the later stages,
+the code gate's reviewer included, by its absolute path from `gates.md`, and a worktree directory that the
+isolated-tree skill would add to `.gitignore` is ignored through the line `/<directory name>`, glob characters
+escaped, in `<git-common-dir>/info/exclude` instead; if `git check-ignore` still does not report it ignored,
+create the tree outside the checkout, not in a temporary directory. The line about the worktree context in
+writing-plans itself is deliberately overridden here — it is worded differently in different copies of
+superpowers; the order is set by ship.
 
-**Before moving to the worktree, save the full SHA of the plan commit** in `base-sha` and the ledger of the
-future code gate — this is its base. Scratch and transition data are saved under absolute paths (the
-"Ledger" section, `references/ledger.md`); auto-picking the new HEAD must neither pull the spec and the plan into the review nor hide
-the code commits.
+**Before the implementation tree is created — or, when an already isolated tree is reused, before the first
+implementation edit — save the full SHA of HEAD as it stands after the document commits** in `base-sha` and the
+ledger of the future code gate — this is its base; normally it is the plan commit. A new tree must start at that
+SHA: check `git rev-parse HEAD` in it before the first edit, and if it differs — a runtime's own tool may branch
+from the remote's default branch — move the fresh tree there with `git reset --keep <SHA>`; never move the base.
+Scratch and transition data are saved under absolute paths (the "Ledger" section, `references/ledger.md`);
+auto-picking the new HEAD must neither pull the spec and the plan into the review nor hide the code commits.
 
 Code is written tests first: **REQUIRED SUB-SKILL** the TDD skill. Two
 boundaries from there that must be read correctly. The Iron Law "wrote code before the test — delete it" is

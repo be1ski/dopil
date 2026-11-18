@@ -15,8 +15,8 @@ For recovery in Git, write the absolute path of the scratch-root to the file
 not one more ledger. Outside Git, or when the git directory is not writable for the current runtime (a sandbox that makes `.git` read-only), keep such a pointer in `.ship/routes/` of the original working directory instead; do not ask for a permission only to write the pointer.
 After a break, find your route's pointer rather than starting a new registry in the current worktree. Look in both places.
 In `<scratch-root>/gates.md` keep the registry: gate, scope, absolute scratch path, state and
-proof of closure. Keep there as well the paths of the spec, the plan and the SDD progress ledger for transitions
-between stages. When the worktree changes, keep using this registry and the listed directories;
+proof of closure. Keep there as well the absolute paths of the spec, the plan and the SDD progress ledger for
+transitions between stages. When the worktree changes, keep using this registry and the listed directories;
 do not overwrite closed gates, add a new gate as a separate row.
 A run that did not happen is an attempt of the same gate. If the adapter requires a new scratch for the retry,
 keep a reference to the failed attempt and update the active path in the registry, without losing the base and

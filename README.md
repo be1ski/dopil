@@ -41,6 +41,6 @@ $ship add CSV export to the reports page           # Codex
 
 Small tasks go code → review → polish; features go spec → plan → code → polish, each step reviewed. A run starts with `Using ship: <route>, reviewer <adapter>`.
 
-Features commit the spec and plan under `docs/superpowers/` and build in a git worktree; review logs stay in `.ship/`. ship never merges or pushes.
+Features commit the spec and plan under `docs/superpowers/` unless git ignores them, and build in a git worktree; review logs stay in `.ship/`. ship never merges or pushes.
 
 Review rounds take minutes and a feature takes hours, on both accounts' limits. ship stops only for spec approval and for scope or taste decisions.

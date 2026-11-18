@@ -21,23 +21,25 @@ parallel fixers. SDD task reviewers remain its subagents: they only read.
 
 The route's "isolated tree" step is covered by Orca, not by `EnterWorktree` and not by `git worktree add`:
 Orca does not show trees in `.claude/worktrees/` in the panel; workers in them are alive but invisible.
-The order is the same as before: the spec and the plan are committed, the plan SHA is in the `base-sha` of the future code gate.
+The order is the same as before: the spec and the plan are committed unless git ignores their paths, and the SHA
+saved after that is in the `base-sha` of the future code gate.
 
 ```bash
 ORCA worktree create --name <topic> --base-branch "$(cat "$SHIP_GATE/base-sha")" --json \
   > "$SHIP_ROOT/worktree.json"          # run from the repository's main checkout
 ```
 
-- `--base-branch` is the literal plan SHA. Without it Orca takes the repository's default base, and
-  the plan commit may not be in the tree.
+- `--base-branch` is that literal SHA. Without it Orca takes the repository's default base, and the tree may not
+  start at that SHA.
 - From `result.worktree` record in `gates.md` the `path` and the tree selector `id:<id>` (an `id` of the form
   `<repoId>::<path>`). Verify: `git -C <path> rev-parse HEAD` equals `base-sha`, the tree is in
   `ORCA worktree list`. If not — stop, do not change the code gate's base.
 - From the isolated-tree skill, step 0 stays (if the session is already in a linked tree, do not create a second
   one), as do the steps for installing dependencies and the clean baseline run, now in the new tree.
-- On the full route, when the session is already in a linked tree: work in it — the spec and the plan are written and committed there —
-  and record in `gates.md` the path and the selector `path:<absolute path>`. If the tree is not in
-  `ORCA worktree list`, tell the user once that the workers are not visible in the panel.
+- On the full route, when the session is already in a linked tree: work in it — the spec and the plan are
+  written and, unless git ignores their paths, committed there — and record in `gates.md` the path and the
+  selector `path:<absolute path>`. If the tree is not in `ORCA worktree list`, tell the user once that the
+  workers are not visible in the panel.
 - **Tree selector** — the `--worktree` value for the tree's workers: `id:<id>` for a tree from
   `worktree create`, `path:<absolute path>` for an existing one that was taken over.
 - **The route's own tree** — the tree from this section that the route created or took over as its own.
@@ -220,9 +222,12 @@ shasum <scope files> 2>&1 | shasum > "$R-tree-before"
 cmp "$R-tree-before" "$R-tree-after" || echo "REVIEWER TOUCHED THE TREE"
 ```
 
-In the implementation tree run the commands from inside it (`cd <path> && …`). If the fingerprints differ — the round
-does not count: show the user `git status`, do not roll anything back yourself. There must be no writing workers
-in the tree at that time (section "One writing worker per tree").
+A scope file that git ignores (a spec or plan left uncommitted) is not in the git fingerprint: fingerprint it as
+well, with the outside-git command but into its own pair `"$R-doc-before"` / `"$R-doc-after"`, and on a mismatch
+name it to the user, because `git status` does not show it. In the implementation tree run the commands from
+inside it (`cd <path> && …`). If the fingerprints differ — the round does not count: show the user `git status`,
+do not roll anything back yourself. There must be no writing workers in the tree at that time (section "One
+writing worker per tree").
 
 **The Codex tier cannot be set by a flag.** Before the first round with `--agent codex`:
 

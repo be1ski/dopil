@@ -244,6 +244,7 @@ Review only the changes between <gate base SHA> and <the current working tree | 
 
 Scope of the work: <one line: what we are building and how big it is>.
 Calibrate the bar to that scope.
+<only if the spec or the plan was left uncommitted: The spec and the plan are at <absolute paths>. Read them as context; they are not part of the change.>
 
 <only if present: block "Known task-review items">
 
@@ -356,6 +357,7 @@ more: on a live task there were four of them, which is four extra runs against t
 
 You reviewed this change and raised the findings below. I have responded to each.
 Re-read the current state yourself — run `git diff <gate base SHA>` — and judge the responses.
+<only for the code gate and the confirmation pass, if the spec or the plan was left uncommitted: The spec and the plan are at <absolute paths>. Read them as context; they are not part of the change.>
 
 <one line per finding: "<finding title>" — fixed like this / rejected because of that>
 

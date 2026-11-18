@@ -112,8 +112,7 @@ make sure the reviewed scope is not empty. Git gate: `git diff --stat <gate base
 untracked files that are part of the work have been added at least via `git add -N`. A wrong base, an already
 committed tree or someone else's worktree give "clean" on zero content. A file gate (spec,
 plan, file as is) has no diff at all: check that every path named in the prompt
-exists and is non-empty — and if the content went into the prompt inline, that the non-empty content of the
-right file was sent. A snapshot delta is checked by a non-empty diff, including deletion: the absence of the
+exists and is non-empty. A snapshot delta is checked by a non-empty diff, including deletion: the absence of the
 current file does not by itself make such a scope empty. Confirm reading and scope coverage in the way of the
 selected adapter, not by the presence of an arbitrary text marker.
 
@@ -149,7 +148,8 @@ The work is finished when all of the following hold at once:
   stages a fresh confirmation gate over the whole change is closed; it may be the last gate;
 - every required gate from the registry is closed by a run verdict — zero discovery findings or
   `VERDICT: ALL RESOLVED` — over a non-empty scope, and there were no new edits after the last gate;
-- the checks were run in this same message, with output;
+- the checks were run in this same message, with output; a required check that could not be run is named as not
+  verified, with the reason, and the work is reported as unfinished;
 - there are no open lines in any gate ledger of the route, and an explicit outcome is kept for every
   carried-over deferred/parked SDD entry; the final report lists the findings of each gate with their outcome
   (the "Report" section, `references/report.md`), and everything noticed but not done is named in a separate line.

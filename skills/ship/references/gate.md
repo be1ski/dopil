@@ -26,7 +26,7 @@ subagent-driven-development: this applies to the task-review subagents as well, 
 to a full SHA with `git rev-parse <base>^{commit}`; if no separate base is given — save the
 result of `git rev-parse HEAD`. Do not recompute a base already saved while preparing the route.
 Write the SHA to `<gate-scratch>/base-sha` and to the ledger together with the scope
-and the working directory. For the full route use the already saved plan SHA, for polish —
+and the working directory. For the full route use the SHA already saved before implementation, for polish —
 the SHA of the clean code gate. In every discovery/verify `<gate base>` means this literal SHA,
 not the symbolic `HEAD`; commits made during the gate do not change the base. The diff from it to the working
 tree includes staged and committed work. In snapshot mode, instead of a SHA save the snapshots and the mapping of
