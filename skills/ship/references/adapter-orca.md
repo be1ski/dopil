@@ -92,14 +92,14 @@ and the polisher write their report files there too.
 
 | SDD or ship step | In Orca |
 |---|---|
-| Dispatch of the task executor | `ORCA orchestration worker-start --spec-file "$W/task-N-dispatch.md" --task-title "ship impl: task N" --worktree "<tree selector>" --agent <agent> --model <id> --keep-open --json > "$W/task-N-receipt.json"` |
+| Dispatch of the task executor | `ORCA orchestration worker-start --spec-file "$W/task-N-dispatch.md" --task-title "ship impl: task N" --worktree "<tree selector>" --agent <agent> --model <id> --json > "$W/task-N-receipt.json"` |
 | Tab title | `ORCA terminal rename --terminal <terminal from the receipt> --title "ship impl: <feature> · task N"`. A rename error does not break the task |
 | Assignment | The executor template from SDD plus the "Orca executor worker" block from the section below, as a file. The brief and the report file — per the SDD rules; the dispatch also carries the plan's Global Constraints, which the SDD brief script leaves out, and tells the worker to load the TDD skill named in the executor adapter. A one-off route has no SDD task: the assignment is a brief file with the task, the checks and the report path plus the block's variant without git, and the template's commit step does not apply |
 | Executor id | The `dispatchId` from the receipt — into the SDD progress ledger. Every `send` returns a new `dispatchId`; keep the latest |
 | Waiting | After `worker-start` or `send` **end the turn**: Orca wakes you on `worker_done`. Do not poll. If "Run `ORCA orchestration check --run <id>`" arrives — run that command |
 | Executor's question | Arrives as a `question` message: `ORCA orchestration reply --id <message_id> --body "<answer>"` and end the turn again |
 | Report | The `worker_done` body is the short SDD status contract; the full report is the `task-N-report.md` file in `$W`. Verify the commits: `git -C <path> log <BASE>..HEAD` |
-| Fix rounds 1–3, "resume implementer" | `ORCA orchestration send --to dispatch:<latest dispatchId> --subject "ship fix task N round K" --body "$(cat "$W/task-N-fix-K.md")" --json`. The same chat, the same tab |
+| Fix rounds 1–3, "resume implementer" | `ORCA orchestration send --to dispatch:<latest dispatchId> --subject "ship fix task N round K" --body "$(cat "$W/task-N-fix-K.md")" --json`. The same chat; if the receipt says `delivery: started_fresh`, Orca could not reopen it and a new worker took the round — a line in the ledger |
 | Fix rounds 4–5 | A new `worker-start` on a model one step above the stuck one, per "Model selection". Nothing higher in the same vendor — the same model as a fresh worker, a line in the ledger. Do not wake the stuck one again |
 | Fixing gate findings | One fixer worker per gate: the first round — `worker-start` with the title `ship fix: <gate>`, the following rounds of the same gate — `send` to its dispatch. Findings and triage decisions — as a file, one line per finding |
 | Polish | One fresh worker: the simplifying pass, the deletion pass, comment cleanup per the core's "Comments" section (`references/polish.md`), checks. The assignment includes the block for `simplify` / `ponytail-review` from the section "Block 'Engineering baseline'" in `prompts.md`, the "Orca executor worker" block from the section below with its exception for agents of the pass itself, and the core's rule "Polish adds nothing" (`references/polish.md`). If the pass is not registered for the worker, it polishes by hand against the same criteria and writes so in the report. From the deletion pass it applies only a deletion that removes nothing the spec, the plan or a check requires; every other candidate is disputed: it lists them in the report without applying, the main agent decides and sends a follow-up `send` |
@@ -113,6 +113,8 @@ context that runs the gates.
 Goes into **every** assignment to a
 writing worker: the task executor, the fixer, the polisher. In a follow-up via `send`, repeat it in one
 line: `The earlier constraints still apply: no subagents, helpers, other workers or independent reviews.`
+Add the path of the worker's first assignment file and ask it to read that file in full if its chat does not
+show it: a worker Orca could not reopen starts with only a summary.
 
 ```text
 You are a dispatched Orca worker acting as the implementer of this one task.
@@ -253,7 +255,8 @@ For an executor worker the proof is the same. Only after it does the mechanism f
 adapter (its own subagent with edit permission) take over the task, and the report says so. No proof —
 the task waits: a second writer in the same tree is worse than idle time.
 
-A `send` that reopens a settled reviewer can fail the same way (seen: `failedStage` `agent_readiness`,
-`lastError` "Agent startup blocked: agent-update-prompt" — the Codex CLI waiting on its update prompt).
-That is a verification round that did not happen, not a new gate: keep `thread-id` at the last dispatch
-that answered, show the user the `lastError`, and repeat the same `send` after they clear it.
+A `send` that reopens a settled worker can fail the same way (seen with a reviewer: `failedStage`
+`agent_readiness`, `lastError` "Agent startup blocked: agent-update-prompt" — the Codex CLI waiting on its
+update prompt). That is a round that did not happen — for a reviewer a verification round, not a new gate:
+keep the last dispatch that answered as the worker's id (`thread-id` for a reviewer), show the user the
+`lastError`, and repeat the same `send` after they clear it.
