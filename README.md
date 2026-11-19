@@ -44,3 +44,5 @@ Small tasks go code → review → polish; features go spec → plan → code �
 Features commit the spec and plan under `docs/superpowers/` unless git ignores them, and build in a git worktree; review logs stay in `.ship/`. ship never merges or pushes.
 
 Review rounds take minutes and a feature takes hours, on both accounts' limits. ship stops only for spec approval and for scope or taste decisions.
+
+Kimi Code can review instead of the default reviewer or alongside it, only when the request says so (`reviewer kimi`, `kimi in parallel`); it needs the `kimi` CLI logged in; with `reviewer kimi` the other vendor's CLI is not needed.

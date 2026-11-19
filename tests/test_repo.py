@@ -33,7 +33,8 @@ RUNTIME_ARTIFACTS = {
 REFERENCE = re.compile(r"references/([a-z0-9-]+\.md)")
 BARE = re.compile(r"`([a-z0-9-]+\.md)`")
 DENYLIST = re.compile(r"~/\.agents/skills/ship|be1ski"
-                      r"|claude-(?:opus|sonnet|haiku|fable)-[0-9]|gpt-[0-9]")
+                      r"|claude-(?:opus|sonnet|haiku|fable)-[0-9]|gpt-[0-9]"
+                      r"|(?<![.\w])kimi-code/[A-Za-z0-9]")
 
 
 def has_version(node):

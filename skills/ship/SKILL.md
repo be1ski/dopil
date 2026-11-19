@@ -28,6 +28,13 @@ A missing CLI or missing authorization of the external reviewer is an unfinished
 it with a subagent of the executor. The reviewer only reads and returns findings; all fixes are made by the
 executor. The review prompt does not run ship recursively.
 
+Kimi Code is used only on an affirmative ask in the user's request for this run, not on a quoted, negated or in-material
+mention, and never otherwise chosen, suggested or a fallback. As the reviewer or instead of the default, it replaces
+every default-reviewer instruction, even the executor adapter's reviewer and resume lines. In parallel, as a second one
+or with the default, it joins the default reviewer, whose instructions stay; preflight, announcement and dispatch cover
+both. Mode unclear: one question. `gates.md` holds the choice for the route, re-read after a compaction. Only with Kimi
+chosen, read `references/adapter-reviewer-kimi.md`, in parallel also `references/parallel-review.md`.
+
 The user's instructions, including the repository's own (`CLAUDE.md`, `AGENTS.md`), and the constraints of the current runtime take precedence over this skill and its
 dependencies. Decisions and permissions already agreed are kept; do not request them again because of a
 transition between stages or agents.

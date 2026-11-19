@@ -91,7 +91,8 @@ from `references/adapter-orca.md` is added to the rules below.
 **Not allowed:**
 - **do not multiply the review itself.** Multi-agent review loses to a single reviewer in measurements, and when
   the exit is "zero findings" every extra lens means extra items that will have to be closed. One
-  reviewer, one verdict, one thread;
+  reviewer, one verdict, one thread. The one exception is the parallel mode the user selects per `SKILL.md`:
+  `references/parallel-review.md`;
 - fixes in non-overlapping files — yes, in overlapping ones — no, only sequentially;
 - subagents on which the runtime imposes auto-accept of edits regardless of the session mode are not fit for
   fixes. Which mechanism in your runtime gives subagents with edit permission, and which
