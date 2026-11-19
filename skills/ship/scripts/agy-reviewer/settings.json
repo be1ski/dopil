@@ -1,0 +1,1 @@
+{"allowNonWorkspaceAccess": true, "permissions": {"deny": ["write_file(*)", "command(*)", "mcp(*)", "execute_url(*)", "read_url(*)"]}}

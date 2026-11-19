@@ -1,9 +1,9 @@
 # Reviewer adapter: Kimi Code
 
-Read only when the user asked for Kimi (`SKILL.md`). The reviewer is the Kimi Code CLI: vendor Moonshot AI, Kimi
-family. Requires `kimi` set up and logged in, `jq` and `python3`. The commands are written for Kimi Code 2.6.3.
-Kimi selected but not usable: name the blocker and stop. Never fall back to the default reviewer, and in parallel
-mode never continue with the default reviewer alone.
+Read only when Kimi is chosen (`references/reviewer-choice.md`). The reviewer is the Kimi Code CLI: vendor Moonshot
+AI, Kimi family. Requires `kimi` set up and logged in, `jq` and `python3`. The commands are written for Kimi Code
+2.6.3. Kimi chosen but not usable: name the blocker and stop. Never fall back to another reviewer, and never continue
+with fewer reviewers.
 
 ## Contract card
 
