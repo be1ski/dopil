@@ -31,9 +31,10 @@ declared fallback — returns a verdict, and only after that put it into the rou
 The same form as the reviewer's. A row without a working fallback is blocking. Route skills are not replaced
 by a manual pass: if the needed one is missing, say which one and stop, as with a missing reviewer adapter.
 
-**The executor runtime is plugged in through a `references/adapter-executor-*.md` file; read it before the
-first step of the route.** No adapter for your runtime — write one against the card rather than guessing
-from the text; the names of the route skills are there too.
+**An executor is plugged in through a full `references/adapter-executor-*.md` adapter, or through
+`references/executor.md` with an optional card; read them before the first step of the route.** A runtime with
+neither follows `references/executor.md` alone. A card is written against the table below when a runtime needs more
+than the generic rule gives.
 
 | Capability | Why | Fallback |
 |---|---|---|

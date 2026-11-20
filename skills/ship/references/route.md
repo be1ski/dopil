@@ -10,9 +10,10 @@ concrete blocker; preflight does not change permissions and does not require re-
 **Utilities.** Run `command -v git python3 jq`. For each one missing, name it and stop; do not
 install anything.
 
-**Route skills.** Check that every route skill named in the executor adapter is present in the
-session's skill catalog. If one is absent, name it, print the install command for the current
-agent from the adapter, and stop.
+**Route skills.** Check that every route skill named in the executor's full adapter, or else in
+`references/executor.md` (there both `subagent-driven-development` and `executing-plans`), is present in the
+session's skill catalog. If one is absent, name it, give the install
+command from the adapter or card (none there: as `references/executor.md` says), and stop.
 
 ## Route details
 
@@ -41,7 +42,8 @@ the same mechanism the polish delta is computed with. For a one-off git gate, be
 original HEAD SHA in `base-sha` and in the ledger of the future code gate; the implementation commits must also
 fall within its scope. The Execution Handoff from writing-plans is not performed here: the execution method was
 already chosen by invoking ship; after a clean plan gate go straight to the worktree and
-subagent-driven-development. The spec and the plan are written in the main tree and committed **before** the
+subagent-driven-development, or `executing-plans` when the executor rule selects it. The spec and the plan are
+written in the main tree and committed **before** the
 worktree is created — as a separate commit and only with their own paths; do not sweep anything else from the
 working tree into it: the tree is created from HEAD, and an uncommitted plan simply will not be in it. Ship does
 not edit or commit a repository file that is not part of the work, the repository's `.gitignore` included: a
@@ -82,7 +84,10 @@ From subagent-driven-development only the per-task loops are performed: implemen
 fixes. Its tail — the final whole-branch review, removal of the plan workspace and the transition to
 finishing-a-development-branch — **is not performed**: the whole-branch review is replaced by ship's code gate,
 and removal of the tree belongs to the merge decision and comes after polish and the final gate, otherwise
-there will be nothing to polish. The code gate sits on top, once, over the whole change.
+there will be nothing to polish. When the executor rule (`references/executor.md`) selects superpowers'
+`executing-plans` instead, it runs inline with its task loop and its own ledger; its final review, removal of the
+plan workspace and transition to finishing-a-development-branch are not performed, as for SDD's tail. The code gate
+sits on top, once, over the whole change.
 
 **Parking from SDD is only a temporary hand-over to the code gate.** Before its discovery, read the SDD progress
 ledger, carry all deferred/parked entries with their technical grounds over into the code-gate ledger

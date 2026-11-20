@@ -8,7 +8,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 MANIFESTS = [".claude-plugin/plugin.json", ".claude-plugin/marketplace.json",
-             ".codex-plugin/plugin.json", ".agents/plugins/marketplace.json"]
+             ".codex-plugin/plugin.json", ".agents/plugins/marketplace.json",
+             ".kimi-plugin/plugin.json", ".antigravity-plugin/plugin.json"]
 MARKETPLACES = [".claude-plugin/marketplace.json", ".agents/plugins/marketplace.json"]
 SKILLS = ["skills/ship/SKILL.md", "skills/pragmatic-engineering/SKILL.md"]
 REFERENCES = "skills/ship/references"

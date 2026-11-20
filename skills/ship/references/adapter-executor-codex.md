@@ -1,7 +1,7 @@
 # Executor adapter: Codex
 
-The executor is Codex (OpenAI, GPT family), the external reviewer is Claude Code (Anthropic).
-Before the first step, read `adapter-reviewer-claude-code.md` next to this file.
+The executor is Codex (OpenAI, GPT family); its default reviewer is Claude Code. The chosen reviewers come from
+`reviewer-choice.md`, and their adapters are read before the first gate.
 
 ## Contract card
 

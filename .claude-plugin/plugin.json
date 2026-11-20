@@ -1,6 +1,6 @@
 {
   "name": "ship",
-  "description": "Cross-vendor review loop for Claude Code and Codex: spec, plan and implementation are driven until an independent reviewer from the other vendor comes back clean.",
+  "description": "Cross-vendor review loop: spec, plan and implementation are driven until an independent reviewer from another vendor comes back clean.",
   "author": { "name": "be1ski" },
   "repository": "https://github.com/be1ski/ship",
   "license": "MIT",

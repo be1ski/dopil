@@ -1,16 +1,20 @@
 ---
 name: ship
-description: Use when work needs independent cross-vendor review through completion in Claude Code or Codex — a spec, a plan, an implementation, or a quick script. Triggers on "/ship", "$ship", "$ship:ship", "прогони через ревью", "пиши спеку, план и реализуй", "доведи до чистого ревью", "до консенсуса с ревьюером", "review until clean", "full ride".
+description: Use when work needs independent cross-vendor review through completion — a spec, a plan, an implementation, or a quick script. Triggers on "/ship", "$ship", "$ship:ship", "/ship:ship", "/skill:ship:ship", "прогони через ревью", "пиши спеку, план и реализуй", "доведи до чистого ревью", "до консенсуса с ревьюером", "review until clean", "full ride".
 ---
 
 # ship — take work to a clean external review
+
+Read every file this skill names whole, with the runtime's file-read tool where it has one, not through a shell
+command whose output can be cut.
 
 ## Orca
 
 If the `ORCA_TERMINAL_HANDLE` environment variable is set and `references/adapter-orca.md` exists
 next to this skill, read it now, before preflight, and follow it. It replaces how the reviewer is
 called, how the isolated tree is created and who edits code (Orca workers instead of the
-executor's own subagents). Either condition false: skip this section silently.
+executor's own subagents, except where `references/executor.md`, Orca without a card, says otherwise). Either
+condition false: skip this section silently.
 
 ## Shared install and role selection
 
@@ -18,20 +22,28 @@ Relative paths below are relative to the directory of the loaded `SKILL.md`.
 
 The executor is the current main agent, not an arbitrary CLI found in PATH:
 
-| Where ship was invoked | Executor adapter | Reviewer adapter |
+| Where ship was invoked | Executor | Default reviewer (for request forms that name it; first in the dialog) |
 |---|---|---|
-| Claude Code / Anthropic Claude | `references/adapter-executor-claude-code.md` | `references/adapter-reviewer-codex.md` |
-| Codex / OpenAI GPT | `references/adapter-executor-codex.md` | `references/adapter-reviewer-claude-code.md` |
+| Claude Code | `references/adapter-executor-claude-code.md` | Codex |
+| Codex | `references/adapter-executor-codex.md` | Claude Code |
+| Kimi Code | `references/executor.md` + `references/adapter-executor-kimi.md` | none |
+| Antigravity CLI | `references/executor.md` + `references/adapter-executor-antigravity.md` | none |
+| Any other agent | `references/executor.md` | none |
 
-Read the selected pair before the first step; the routes and the protocol below are shared by both pairings.
+Startup order, the same for every executor and kept after a compaction or a break:
+
+1. Identify the runtime and read its executor files from the table, `references/executor.md` before a card.
+2. Establish the executor's vendor and model family as the adapter or card says. The exact model id is needed only
+   where something is pinned to it (Orca workers, subagent models); without it those uses are unavailable, not
+   guessed. Unknown vendor: blocked.
+3. Read `references/reviewer-choice.md` and resolve the route's reviewer set by it.
+4. Each gate's set (its locked row on resume, otherwise the route-wide set with that stage's override) decides which
+   reviewer adapters are read, whether `references/parallel-review.md` applies, preflight and dispatch.
+5. The announcement, then the route. The routes and the protocol below are shared by every executor.
+
 A missing CLI or missing authorization of the external reviewer is an unfinished gate, not a reason to replace
 it with a subagent of the executor. The reviewer only reads and returns findings; all fixes are made by the
 executor. The review prompt does not run ship recursively.
-
-The table's reviewer is the default. When the user affirmatively asks in this run for a reviewer other than or besides
-it, named or not (not a quoted, negated or in-material mention), or the route's `gates.md` holds a `Reviewers:` line,
-read `references/reviewer-choice.md` first, before any reviewer adapter, reviewer preflight, announcement or dispatch,
-and again after a compaction or a break. Otherwise no other reviewer is chosen, suggested or a fallback.
 
 The user's instructions, including the repository's own (`CLAUDE.md`, `AGENTS.md`), and the constraints of the current runtime take precedence over this skill and its
 dependencies. Decisions and permissions already agreed are kept; do not request them again because of a
@@ -43,8 +55,8 @@ by the same reviewer that produced it. The list is compiled once and from then o
 The same gate applies to every artifact: to the spec, to the plan, to the code and to the code after
 polish.
 
-**Announce at the start**, in the user's language: "Using ship: <route>, reviewer <adapter>". If the runtime has a
-todo tool, create one todo per gate of the route.
+**Announce at the start**, in the user's language: "Using ship: <route>, reviewer <adapter>", or "reviewers <set>"
+for two or more, with stage overrides named. If the runtime has a todo tool, create one todo per gate of the route.
 
 ## Baseline approach to review
 
@@ -121,8 +133,9 @@ exists and is non-empty. A snapshot delta is checked by a non-empty diff, includ
 current file does not by itself make such a scope empty. Confirm reading and scope coverage in the way of the
 selected adapter, not by the presence of an arbitrary text marker.
 
-**After a context compaction or a break**, before continuing: re-read this file, the selected
-executor and reviewer adapters, `references/ledger.md`, the route registry `gates.md`, the ledger
+**After a context compaction or a break**, before continuing: re-read this file, the executor
+adapter or card, `references/executor.md` where it applies, `references/reviewer-choice.md` and the current gate's
+reviewers' adapters, `references/ledger.md`, the route registry `gates.md`, the ledger
 and saved state of every gate the registry lists as open (`ledger.md`, `thread-id`, `base-sha` or
 snapshots), and the reference file of the current phase from the index below.
 

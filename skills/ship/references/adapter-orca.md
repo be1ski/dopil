@@ -6,16 +6,21 @@ code**. Routes, gates, the ledger, triage, the round message format and the "rev
 stay as in `SKILL.md` and the reviewer and executor adapters; read them as usual.
 
 Load the `orchestration` skill: it provides this session's CLI and the `skills get orchestration` guide.
-It is installed by Orca, not by this plugin. If it is not in the catalog, name it as a missing prerequisite and stop.
+It is installed by Orca, not by this plugin. If it is not in the catalog, resolve the executable as Orca's stub
+does: `ORCA_CLI_COMMAND` if set; else `orca-dev` in a dev checkout that exposes `ORCA_DEV_REPO_ROOT`; else `orca-ide`
+on Linux outside Orca's terminals; else `orca`. Then run `<it> skills get orchestration`. A missing executable and a
+failing command are separate missing prerequisites: name the one that happened, do not try another executable, stop.
 Below, `ORCA` is that CLI. Call the reviewer per the table in **all** gates: spec, plan, code, polish,
 confirmation pass.
 
 **In Orca only workers edit code**: implementation, the per-task executors and fixers of
 subagent-driven-development, fixing code-gate findings, polish — per the section "Executor as
-worker". The main agent does not call its own subagents for edits (`Agent`, `spawn_agent`) and does not
-edit the implementation tree itself. The main agent keeps: the route, the spec and the plan with their edits,
-triage, rulings, the ledgers and the gate registry, round messages, running the checks, commits on behalf of
-parallel fixers. SDD task reviewers remain its subagents: they only read.
+worker". The main agent does not call its own subagents for edits (`Agent`, `spawn_agent`, `invoke_subagent`) and
+does not edit the implementation tree itself. An exception is `references/executor.md`, "Orca without a card":
+there the executor's own in-session writers take the writing workers' place in this file's rules, and every one of
+them has settled before any fingerprint, save or rollback. The main agent keeps: the route, the spec and the plan
+with their edits, triage, rulings, the ledgers and the gate registry, round messages, running the checks, commits on
+behalf of parallel fixers. SDD task reviewers remain its subagents: they only read.
 
 ## Isolated tree
 
@@ -58,14 +63,14 @@ ORCA worktree create --name <topic> --base-branch "$(cat "$SHIP_GATE/base-sha")"
 
 | Reviewer adapter step | In Orca |
 |---|---|
-| Who the reviewer is | Claude executor → `--agent codex`. Codex executor → `--agent claude`. The same vendor as the executor — the gate is blocked |
+| Who the reviewer is | Keyed by the chosen reviewer: Codex → `--agent codex`; Claude Code → `--agent claude`; Kimi and Gemini → the "Orca" section of their adapter. A reviewer of the executor's vendor — the gate is blocked |
 | Model and effort pin | The pair is chosen per the preparation section of the reviewer adapter ("Preparation" or "Preparation and pin") and passed in `--model` and `--effort`. Write `model` and `effort` from the `worker-start` receipt to the ledger |
 | Where to run | Spec and plan — `--worktree current`. The code and polish gates and the confirmation pass — where the code lives, because the reviewer reads `git diff` there: `--worktree "<tree selector>"` on the full route, `--worktree current` on a one-off route |
 | Discovery | `ORCA orchestration worker-start --spec-file "$R-prompt.md" --task-title "ship <gate> round NN" --worktree <where to run> --agent <agent> --model <id> --effort <level> --json > "$R-receipt.json"` |
 | Tab title | Right after the start: `ORCA terminal rename --terminal <terminal from the receipt> --title "ship review: <what is reviewed> · <gate> rNN"`. Without it the tab is called `worker-task_<id>`. A rename error does not break the round |
 | Thread | Save the `dispatchId` from the receipt to `$SHIP_GATE/thread-id`. Every follow-up returns a new `dispatchId` — overwrite with it |
 | Verification in the same thread | `ORCA orchestration send --to dispatch:$(cat "$SHIP_GATE/thread-id") --subject "ship verify round NN" --body "$(cat "$R-prompt.md")"`. The worker continues the same chat and remembers its findings |
-| Waiting | After `worker-start` or `send` **end the turn**: Orca wakes you with a `worker_done` message. This is waiting for the reviewer, not stopping the route — after it continue from the same step. Do not poll and do not write watch scripts |
+| Waiting | After `worker-start` or `send` **end the turn**: Orca wakes you with a `worker_done` message (a Kimi Code or Antigravity executor first starts the background wait of its card's **Tools**). This is waiting for the reviewer, not stopping the route — after it continue from the same step. Do not poll and do not write watch scripts |
 | Round response | Save the `worker_done` message body to `$R-review.txt` and `last-review.txt` — the `body` field from `ORCA orchestration check --json`, not the printed `check` output, which indents it and appends `payload:` and `To give this worker more work:` lines. The last-line `VERDICT` contract applies to the body. No `VERDICT` line or the text is cut off — read the rest with `ORCA orchestration worker-read --dispatch <id> --source transcript` |
 | Prompt mode | Always controlled text, including for a diff: a framework from `prompts.md` with the "What you opened" block (`REVIEWED`, `CONTEXT`) and the `VERDICT` line last. Native `codex exec review` is not used. The reviewer gets the diff the way its adapter declared: Codex runs `git diff <base-sha>` itself; Claude only reads files, so the executor attaches a freshly computed diff to the prompt on discovery and on every verify |
 | Read confirmation | The `REVIEWED` and `CONTEXT` lists in the response. There is no `events.jsonl` in this mode |
@@ -81,11 +86,19 @@ with the VERDICT line, into the worker_done body. Do not create, edit or delete 
 ## Executor as worker
 
 **The executor worker's vendor = the main agent's vendor and ≠ the reviewer's vendor.** Otherwise the reviewer
-checks its own model. Claude main agent → executors only `--agent claude`, Codex →
-only `--agent codex`. If the user named an executor from the reviewer's vendor — say so and
-stop; do not substitute silently. The model is set explicitly for each worker via `--model`, per the section
-"Model selection" of the executor adapter: invoking ship is the user naming the model in the sense of the
-`orchestration` guide, which otherwise adds `--model` only on the user's word. Write `agent` and `model` from the receipt to the SDD ledger.
+checks its own model. If the user named an executor from the reviewer's vendor — say so and
+stop; do not substitute silently. How writing workers start depends on the main agent:
+
+- Claude Code → executors only `--agent claude`, Codex → only `--agent codex`, per the table below. The model is
+  set explicitly for each worker via `--model`, per the section "Model selection" of the executor adapter: invoking
+  ship is the user naming the model in the sense of the `orchestration` guide, which otherwise adds `--model` only
+  on the user's word. Write `agent` and `model` from the receipt to the SDD ledger.
+- Kimi Code and Antigravity → the card's **Orca writing workers**, **Follow-ups** and **Closing**
+  (`references/adapter-executor-kimi.md`, `references/adapter-executor-antigravity.md`). They replace every writer
+  mechanic of this section: the `--model` rule above, the starts of task executors, gate fixers, parallel fixers,
+  polishers and fix rounds 4–5, every `send` follow-up and the block's follow-up via `send`. The rest of the table
+  and the block stay.
+- An executor without a card → no writing workers: `references/executor.md`, "Orca without a card".
 
 `$W` is the SDD plan workspace in the tree; for a one-off route — the code-gate scratch. The fixer of a gate
 and the polisher write their report files there too.
@@ -96,8 +109,8 @@ and the polisher write their report files there too.
 | Tab title | `ORCA terminal rename --terminal <terminal from the receipt> --title "ship impl: <feature> · task N"`. A rename error does not break the task |
 | Assignment | The executor template from SDD plus the "Orca executor worker" block from the section below, as a file. The brief and the report file — per the SDD rules; the dispatch also carries the plan's Global Constraints, which the SDD brief script leaves out, and tells the worker to load the TDD skill named in the executor adapter. A one-off route has no SDD task: the assignment is a brief file with the task, the checks and the report path plus the block's variant without git, and the template's commit step does not apply |
 | Executor id | The `dispatchId` from the receipt — into the SDD progress ledger. Every `send` returns a new `dispatchId`; keep the latest |
-| Waiting | After `worker-start` or `send` **end the turn**: Orca wakes you on `worker_done`. Do not poll. If "Run `ORCA orchestration check --run <id>`" arrives — run that command |
-| Executor's question | Arrives as a `question` message: `ORCA orchestration reply --id <message_id> --body "<answer>"` and end the turn again |
+| Waiting | After `worker-start` or `send` **end the turn**: Orca wakes you on `worker_done` (a Kimi Code or Antigravity executor first starts the background wait of its card's **Tools**). Do not poll. If "Run `ORCA orchestration check --run <id>`" arrives — run that command |
+| Executor's question | Arrives as a `question` message: `ORCA orchestration reply --id <message_id> --body "<answer>"` and end the turn again (a Kimi Code or Antigravity executor first starts the background wait of its card's **Tools**) |
 | Report | The `worker_done` body is the short SDD status contract; the full report is the `task-N-report.md` file in `$W`. Verify the commits: `git -C <path> log <BASE>..HEAD` |
 | Fix rounds 1–3, "resume implementer" | `ORCA orchestration send --to dispatch:<latest dispatchId> --subject "ship fix task N round K" --body "$(cat "$W/task-N-fix-K.md")" --json`. The same chat; if the receipt says `delivery: started_fresh`, Orca could not reopen it and a new worker took the round — a line in the ledger |
 | Fix rounds 4–5 | A new `worker-start` on a model one step above the stuck one, per "Model selection". Nothing higher in the same vendor — the same model as a fresh worker, a line in the ledger. Do not wake the stuck one again |
@@ -111,8 +124,9 @@ context that runs the gates.
 ## Block "Orca executor worker"
 
 Goes into **every** assignment to a
-writing worker: the task executor, the fixer, the polisher. In a follow-up via `send`, repeat it in one
-line: `The earlier constraints still apply: no subagents, helpers, other workers or independent reviews.`
+writing worker: the task executor, the fixer, the polisher. In a follow-up — via `send`, or for Kimi Code and
+Antigravity as the card's **Follow-ups** say — repeat it in one line:
+`The earlier constraints still apply: no subagents, helpers, other workers or independent reviews.`
 Add the path of the worker's first assignment file and ask it to read that file in full if its chat does not
 show it: a worker Orca could not reopen starts with only a summary.
 
@@ -175,8 +189,14 @@ ORCA orchestration worker-stop --dispatch <latest dispatchId> --json > "$W/stop-
 ```
 
 The stop is confirmed only if the response has `state: stopped`, `processAction:
-closed_agent_terminal` and `close.ptyKilled: true`. Exit code 1 or `stop_unknown` — not confirmed: `ORCA orchestration
-worker-show --dispatch <id>`. If even one is not confirmed — do not touch the tree, tell the user.
+closed_agent_terminal` and `close.ptyKilled: true`. Card workers differ. A Kimi Code writer runs in a terminal ship
+created, and `worker-stop` on its dispatch leaves that terminal open (measured: on a settled dispatch it returns the
+settled state, `processAction: none`, `close: null`): its stop is the card's **Closing**, `ORCA terminal close
+--terminal <handle> --json` with `close.ptyKilled: true`, or the handle verified absent as that section says. An
+Antigravity writer: `worker-stop`; its receipt's `close.ptyKilled: true` is the proof, and only when the stop did not
+close the terminal, the card's terminal close (or verified absence). Exit code 1 or `stop_unknown` —
+not confirmed: `ORCA orchestration worker-show --dispatch <id>`. If even one is not confirmed — do not touch the tree,
+tell the user.
 
 All confirmed — save the unfinished work. Rolling back the whole tree is allowed only if it is the route's own
 tree (section "Isolated tree") and `gates.md` records that before the first dispatch
@@ -259,6 +279,20 @@ No proof — the gate is blocked, tell the user. If the worker went silent or an
 For an executor worker the proof is the same. Only after it does the mechanism from the executor
 adapter (its own subagent with edit permission) take over the task, and the report says so. No proof —
 the task waits: a second writer in the same tree is worse than idle time.
+
+Kimi Code has no takeover by its own subagent. For Kimi the proof is the failed start's terminal closed or gone as
+the card's **Closing** says: `ORCA terminal close --terminal <handle> --json` with `close.ptyKilled: true`, or the
+handle missing from an untruncated `ORCA terminal list`. A `worker-release` receipt, `retained` included, is cleanup,
+not proof. Only after that proof is a fresh configured Kimi worker started into its new pinned terminal per the
+card's **Orca writing workers**, as the same Task with the flags of **A card writer lost mid-task** below.
+No proof, or the fresh worker cannot start either: the task waits and the user is told. Antigravity: a model that
+`agy models` does not list stops the route and is told to the user, with no takeover.
+
+**A card writer lost mid-task** (Kimi Code, Antigravity: its terminal gone or closed after its `ready` receipt and
+before its `worker_done`) has no takeover by the executor's own subagent. Only after the old terminal is proven gone,
+as the card's **Closing** says, is a fresh writer started per the card's **Orca writing workers**, its pins kept, with
+`--task <its Task>` in place of `--spec-file` and any `--task-title`, plus `--retry-of <its dispatch id>` only when
+Orca reports that Task failed or blocked; a ledger line.
 
 A `send` that reopens a settled worker can fail the same way (seen with a reviewer: `failedStage`
 `agent_readiness`, `lastError` "Agent startup blocked: agent-update-prompt" — the Codex CLI waiting on its
