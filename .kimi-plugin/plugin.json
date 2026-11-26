@@ -1,5 +1,5 @@
 {
-  "name": "ship",
+  "name": "dopil",
   "description": "Cross-vendor review loop: spec, plan and implementation are driven until an independent reviewer from another vendor comes back clean.",
   "skills": "./skills/"
 }

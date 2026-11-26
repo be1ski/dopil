@@ -2,15 +2,16 @@
 
 Each `###` instance is one case for `runner-brief.md`. Its first line names the executor (a variant of `runtimes.md`),
 the reviewers and where it runs; its `Request:` lines name what you type. `baseline` instances run on every build,
-the baseline included; `after-only` instances need what only a later build has. Assertions are about behaviour, so
-they hold for full adapters and cards alike; a value marked "record" is compared with the baseline, not with this
-file. Every instance also records the build proof of `runner-brief.md`.
+the baseline included, which is an earlier dopil export (`runtimes.md`, "Building an export"), as D3's `B0`;
+`after-only` instances need what only a later build has. Assertions are about behaviour, so they hold on every dopil
+build; a value marked "record" is compared with the baseline, not with this file. The previous plugin's layout appears
+only in group M. Every instance also records the build proof of `runner-brief.md`.
 
 ## Inputs
 
 Every text a case types is defined here, so every run types the same strings. A `Request: <name> + <name>` line is
 typed as the variant's invocation with `<task>` replaced by those texts in order, joined by one space: in Claude Code,
-`Request: T1 + BY-CODEX` is `/ship In wc/count.py, when … add a test for it. Review by codex.` A `Request (<when>):`
+`Request: T1 + BY-CODEX` is `/dopil In wc/count.py, when … add a test for it. Review by codex.` A `Request (<when>):`
 line says which session or half it belongs to. FIX, STOP and NEXT are typed alone, at the point the case names.
 
 | Name | Text |
@@ -19,7 +20,7 @@ line says which session or half it belongs to. FIX, STOP and NEXT are typed alon
 | T2 | `Add a --json flag to wc/count.py that prints the three counts as a JSON object {"lines": …, "words": …, "chars": …} instead of the plain line; keep the plain output as the default; tests for both. Full route: spec, plan, code.` |
 | RC | `Take the uncommitted change in wc/count.py through the code gate as it is, without editing it first, then fix what the review finds. It must print "usage: count.py FILE" to stderr and exit with status 2 when no file argument is given.` |
 | RF | `Review only the spec docs/usage.md, without implementing it.` |
-| RESUME | `continue the ship route in this repository` |
+| RESUME | `continue the dopil route in this repository` |
 | BY-CODEX | `Review by codex.` |
 | BY-CLAUDE | `Review by claude.` |
 | BY-KIMI | `Review by kimi.` |
@@ -72,8 +73,8 @@ in the background right after the request is sent:
 ```bash
 bash -c 'sb=$0 handle=$1 line="^([-*][[:space:]]+)?(\*\*)?Reviewers(\*\*)?:"
 recorded() {
-  grep -Eqs "$line" "$sb"/.ship/*/gates.md && return
-  for pointer in "$sb"/.git/ship-routes/*.txt; do
+  grep -Eqs "$line" "$sb"/.dopil/*/gates.md && return
+  for pointer in "$sb"/.git/dopil-routes/*.txt; do
     grep -Eqs "$line" "$(head -n 1 "$pointer" 2>/dev/null)/gates.md" && return
   done
   return 1
@@ -86,7 +87,7 @@ orca terminal close --terminal "$handle" --json' "$SB" "<handle>" > "$E/<case>/q
 echo "$!" > "$E/<case>/quit.pid"
 ```
 
-It reads `gates.md` under `$SB/.ship` and under each route root a pointer in `$SB/.git/ship-routes/` names, and takes
+It reads `gates.md` under `$SB/.dopil` and under each route root a pointer in `$SB/.git/dopil-routes/` names, and takes
 the line bare, as a list item or bold. It closes the session's terminal: `close.ptyKilled: true` in `quit.json` is
 the proof. After 30 minutes without the line it stops, leaves the terminal open and says so in `quit.json`. Its PID
 is in `quit.pid` for the runner's cleanup. Record `gates.md` and whether anything was dispatched; the next session
@@ -101,8 +102,8 @@ sandbox, no reviewer process, worker or gate round).
 | Executor | Form | Entries, in order |
 |---|---|---|
 | Claude Code | its question tool, multi-select; the answer continues the same turn | `codex`, `kimi`, `gemini`, All at once |
-| Codex | plain text, numbered, ending with how to name reviewers in a `$ship` request; the turn ends | `claude`, `kimi`, `gemini`, All at once |
-| Kimi Code under `--auto` | plain text, numbered, ending with how to name reviewers in a `/skill:ship:ship` request; the turn ends | `codex`, `claude`, `gemini`, All at once |
+| Codex | plain text, numbered, ending with how to name reviewers in a `$dopil` request; the turn ends | `claude`, `kimi`, `gemini`, All at once |
+| Kimi Code under `--auto` | plain text, numbered, ending with how to name reviewers in a `/skill:dopil:dopil` request; the turn ends | `codex`, `claude`, `gemini`, All at once |
 | Antigravity on a Gemini model | `ask_question`, multi-select, in this order, no "(Recommended)" | `codex`, `claude`, `kimi`, All at once |
 | Antigravity on a non-Gemini model | the same | every reviewer of another vendor than the model's, in the order `codex`, `claude`, `kimi`, `gemini` (a `claude-` model: `codex`, `kimi`, `gemini`), All at once |
 
@@ -154,7 +155,7 @@ Request: T1
 
 Executor: Kimi Code · Reviewers: codex · outside Orca. Answer: `codex`. Also: the identity result (`ALIAS`,
 `PROVIDER TYPE: kimi`, vendor Moonshot AI) before the dialog; the plain-text question ends with the example
-`/skill:ship:ship <task> with codex and gemini`.
+`/skill:dopil:dopil <task> with codex and gemini`.
 Request: T1
 
 ### A-kimi-all · baseline
@@ -212,7 +213,7 @@ discovery's result is saved in the gate scratch: stop the process and prove it g
 
 ### C-claude-one · baseline
 
-Executor: Claude Code · Reviewers: codex · print mode, `PATH` without `kimi` and `agy`. Assert: ship's own probe in
+Executor: Claude Code · Reviewers: codex · print mode, `PATH` without `kimi` and `agy`. Assert: dopil's own probe in
 the events finds no `kimi` and no `agy`; no question; `Reviewers: codex`; the Codex discovery ran headless, with its
 thread id and review in the gate scratch.
 Request: T1
@@ -220,7 +221,7 @@ Request: T1
 ### C-claude-several · baseline
 
 Executor: Claude Code · Reviewers: none · print mode. Assert: the numbered plain-text question is the last output,
-followed by how to name reviewers in the request with one `/ship` example line; nothing dispatched (no reviewer
+followed by how to name reviewers in the request with one `/dopil` example line; nothing dispatched (no reviewer
 process, no gate round); no tracked file changed.
 Request: T1
 
@@ -239,14 +240,14 @@ Request (both runs): T1 + PAR-KIMI
 ### C-codex-one · baseline
 
 Executor: Codex · Reviewers: claude · print mode, `PATH` without `kimi` and `agy`, with Codex's `PATH` flags. Assert:
-ship's own probe in the events finds no `kimi` and no `agy`; no question; `Reviewers: claude`; the Claude Code
+dopil's own probe in the events finds no `kimi` and no `agy`; no question; `Reviewers: claude`; the Claude Code
 discovery ran headless, with its session id and review in the gate scratch.
 Request: T1
 
 ### C-codex-several · baseline
 
 Executor: Codex · Reviewers: none · print mode. Assert: the numbered plain-text question is the last output,
-followed by how to name reviewers in the request with one `$ship` example line; nothing dispatched; no tracked file
+followed by how to name reviewers in the request with one `$dopil` example line; nothing dispatched; no tracked file
 changed.
 Request: T1
 
@@ -283,13 +284,13 @@ line:
 python3 -I - "$SB" "$(git -C "$SB" rev-parse --path-format=absolute --git-common-dir)" <<'PY'
 import os, sys
 sb, common = sys.argv[1:]
-root = os.path.join(sb, ".ship", "2026-11-01-usage")
+root = os.path.join(sb, ".dopil", "2026-11-01-usage")
 os.makedirs(os.path.join(root, "spec-01"))
-os.makedirs(os.path.join(common, "ship-routes"))
+os.makedirs(os.path.join(common, "dopil-routes"))
 files = {
-    os.path.join(sb, ".ship", ".gitignore"): "*\n",
+    os.path.join(sb, ".dopil", ".gitignore"): "*\n",
     os.path.join(root, "gates.md"): (
-        "# ship route 2026-11-01-usage: wc/count.py usage error\n\n"
+        "# dopil route 2026-11-01-usage: wc/count.py usage error\n\n"
         "Route: full (spec → plan → code → polish). Executor: Claude Code.\n"
         "Reviewer: codex (default)\n\n"
         "| Gate | Scope | Scratch | State | Proof |\n|---|---|---|---|---|\n"
@@ -302,7 +303,7 @@ files = {
         "argument stays as it is.\n\n"
         "A unit test in `tests/test_count.py` runs the script with no arguments and asserts the exit status 2, an "
         "empty stdout and a stderr that starts with `usage:`. `python3 -m unittest discover -s tests` is the check.\n"),
-    os.path.join(common, "ship-routes", "2026-11-01-usage.txt"): root + "\n",
+    os.path.join(common, "dopil-routes", "2026-11-01-usage.txt"): root + "\n",
 }
 for path, text in files.items():
     with open(path, "x", encoding="utf-8") as f:
@@ -314,13 +315,14 @@ Assert: no dialog and no question; the set `codex` taken from the header; `Revie
 first dispatch; the next gate's discovery goes to `codex`.
 Request: RESUME
 
-## Group D3: a gate opened on the baseline, resumed on the later build
+## Group D3: a gate opened on an earlier dopil build, resumed on the later build
 
-Two paired runs. The coordinator also gives `B0`, the baseline export. Steps: create the terminal with no command
-(`orca terminal create --worktree "$SEL" --title "live <case>" --json`) and record its handle; type the baseline
-start with `--plugin-dir $B0`; apply P and send the baseline half's request; as soon as the code gate's `ledger.md`
+Two paired runs. `B0` is an earlier dopil export (`runtimes.md`, "Building an export") whose source SHA the
+coordinator records with the run; until two dopil builds exist, D3 is not run. Steps: create the terminal with no
+command (`orca terminal create --worktree "$SEL" --title "live <case>" --json`) and record its handle; type the start
+with `--plugin-dir $B0`; apply P and send the earlier half's request; as soon as the code gate's `ledger.md`
 holds a finding line, quit the executor with Ctrl-C twice, before any verification starts (a verification already
-started: the pair is rerun), and prove the process ended, leaving the tree, the scratch, `.git/ship-routes`, the
+started: the pair is rerun), and prove the process ended, leaving the tree, the scratch, `.git/dopil-routes`, the
 reviewer's thread and any reviewer terminal in place; record `gates.md`, the ledger and `thread-id`; in the same
 terminal type the start with `--plugin-dir $B`, wait for it, send the later half's request; stop when the code gate
 is closed. Settle and reset only after the pair has settled.
@@ -329,20 +331,124 @@ Assert: the same terminal handle in both halves; after the resume no dialog and 
 `Reviewers:` line unchanged, the gate's row keeping its scope, scratch and reviewers while its State and Proof
 advance, no new discovery for the open gate, its verification in the original thread as "Continuity" says for the
 transport, the planted finding resolved and the gate closed by `VERDICT: ALL RESOLVED`; the build proof of each half
-(the baseline's executor file, then the later build's card).
+(a card under `references/agents/` of `B0`, then of `B`).
 
 ### D3-headless · after-only
 
 Executor: Claude Code · Reviewers: codex · outside Orca (both starts prefixed).
-Request (baseline half): RC + BY-CODEX
+Request (earlier half): RC + BY-CODEX
 Request (later half): RESUME
 
 ### D3-kept · after-only
 
 Executor: Claude Code · Reviewers: kimi · in Orca. Also: the Kimi reviewer's terminal handle and session id recorded
 before the quit are the ones the verification uses, with a `delivery: follow_up` receipt.
-Request (baseline half): RC + BY-KIMI
+Request (earlier half): RC + BY-KIMI
 Request (later half): RESUME
+
+## Group M: an old route migrated on resume
+
+A sandbox copy of an old route: the previous plugin's route as its build 574afe1 left it, a closed spec gate and an
+open code gate, resumed by the build under test.
+
+Setup, by the runner, in this order:
+
+1. Its own one-shot sandbox: `bash <this directory>/make-sandbox.sh <a fresh path> "$B" <superpowers>`, where
+   `<superpowers>` is the `installPath` that `claude plugin list --json` gives for superpowers. `MSB` is that
+   sandbox's physical path (`pwd -P` inside it) and `MBASE` the SHA the script printed: a pair of its own beside the
+   kit's `SB` and `BASE`, which stay as they are. `MSB` equal to `SB`: the case is NOT RUN.
+2. In `$MSB/.claude/settings.json`, the sandbox's own file, add to `enabledPlugins` a `false` entry for every plugin
+   `claude plugin list --json`, run in `$MSB`, lists, except superpowers (the route needs it), the `@builtin` ones and
+   those of scope `session`. The same list, run again, goes into `$E/M-claude/plugins.json`: each plugin turned off
+   shows `enabled: false`, superpowers `enabled: true`; any other value makes the case NOT RUN, with that listing kept.
+3. "Before each case" of `runner-brief.md`, against this sandbox, with `MSB` and `MBASE` in place of `SB` and `BASE`.
+4. Apply P, committed nowhere, then write the old layout: `.ship/.gitignore` holding the single line `*`; the route's
+   `gates.md` with `Reviewers: codex`, a closed file gate `spec-01` over a one-line spec in the scratch and an open git
+   gate `code-01`, both Scratch cells absolute paths under `$MSB/.ship/2026-11-20-usage/`; `code-01`'s `base-sha`
+   (`MBASE`), `ledger.md` (the first line with the scope, the working directory and the base, then one open finding
+   naming P) and `thread-id` (a thread that does not exist); the pointer `.git/ship-routes/2026-11-20-usage.txt`. The
+   block reads the sandbox's git paths with the five variables that point git elsewhere removed, stops on a failing
+   git command, and writes nothing unless the git dir is `$MSB/.git`, the one of this standalone sandbox:
+
+```bash
+python3 -I - "${MSB:?}" <<'PY'
+import os, subprocess, sys
+sb = sys.argv[1]
+if not (os.path.isabs(sb) and os.path.isfile(os.path.join(sb, ".dopil-live-sandbox"))):
+    sys.exit("refusing %r: not the absolute path of a marked sandbox; nothing written" % sb)
+env = {k: v for k, v in os.environ.items()
+       if k not in ("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_OBJECT_DIRECTORY", "GIT_COMMON_DIR")}
+def git(*args):
+    return subprocess.run(["git", "-C", sb] + list(args), env=env, check=True, stdout=subprocess.PIPE,
+                          universal_newlines=True).stdout.strip()
+base = git("rev-parse", "HEAD")
+common = git("rev-parse", "--path-format=absolute", "--git-common-dir")
+if common != os.path.join(sb, ".git"):
+    sys.exit("refusing %r: its git dir is %s, not its own .git; nothing written" % (sb, common))
+root = os.path.join(sb, ".ship", "2026-11-20-usage")
+spec, code = os.path.join(root, "spec-01"), os.path.join(root, "code-01")
+scope = "git diff %s -- wc/count.py tests/test_count.py" % base
+os.makedirs(spec)
+os.makedirs(code)
+os.makedirs(os.path.join(common, "ship-routes"))
+files = {
+    os.path.join(sb, ".ship", ".gitignore"): "*\n",
+    os.path.join(root, "gates.md"): (
+        "# Route 2026-11-20-usage: wc/count.py usage error\n\n"
+        "Reviewers: codex\n\n"
+        "| Gate | Scope | Scratch | State | Proof |\n|---|---|---|---|---|\n"
+        "| spec-01 | file: %s/spec.md | %s | closed (1 round, codex) | codex VERDICT: ALL RESOLVED |\n"
+        "| code-01 | %s | %s | open (codex) | - |\n" % (root, spec, scope, code)),
+    os.path.join(root, "spec.md"): (
+        "Without a file argument, `wc/count.py` prints `usage: count.py FILE` to stderr and exits with status 2, "
+        "and a test in `tests/test_count.py` covers it.\n"),
+    os.path.join(code, "base-sha"): base + "\n",
+    os.path.join(code, "ledger.md"): (
+        "Scope: %s. Working directory: %s. Base: %s.\n"
+        "#1 · 01 · \"main() prints the usage line to stdout and returns with status 0 when no file argument is "
+        "given; stderr and status 2 are asked, and no test covers it\" · open · %s\n" % (scope, sb, base, scope)),
+    os.path.join(code, "thread-id"): "00000000-0000-7000-8000-000000000000\n",
+    os.path.join(common, "ship-routes", "2026-11-20-usage.txt"): root + "\n",
+}
+for path, text in files.items():
+    with open(path, "x", encoding="utf-8") as f:
+        f.write(text)
+PY
+```
+
+5. From `$MSB`, `python3 -I "$B/skills/dopil/references/migrate.py" check` into `$E/M-claude/check.txt` with its exit
+   status: exit 1, a `MOVE` line each for the route, its pointer and `$MSB/.ship`, and `RESTART-LATER <gates.md>:
+   code-01`. Otherwise the case is NOT RUN, with that output.
+
+Steps: start outside Orca from the kit's worktree into this sandbox, `orca terminal create --worktree "$SEL" --title
+"live M-claude" --command "cd <MSB> && env -u ORCA_TERMINAL_HANDLE claude --plugin-dir $B
+--dangerously-skip-permissions" --json`; type the request as the descriptor's Invocation (as the coordinator's L1
+check proved it); answer the migration question with its entry that confirms no session of the previous plugin runs
+(in plain text: `No session of the previous plugin runs.`); as soon as `RESTART code-01 -> code-02` appears, copy
+`$MSB/.dopil/2026-11-20-usage/gates.md` to `$E/M-claude/gates-at-restart.md` (watch the transcript, `runtimes.md`,
+"Transcripts", between the waits), before the gate's State moves on; stop when `code-02` is closed. "After each case"
+of `runner-brief.md` covers both layouts, `$MSB/.ship` and `$MSB/.git/ship-routes` as well as the new ones, runs its
+git commands in the clean context of the setup block, and deletes the sandbox.
+
+Assert: the build proof, with the loaded `SKILL.md` at `$B/skills/dopil/SKILL.md`; the migration question once, after
+`check` and before `run`, both by that skill's `references/migrate.py`; after `run`, `$MSB/.ship` and
+`$MSB/.git/ship-routes` gone, the route under `$MSB/.dopil/2026-11-20-usage/` and the pointer
+`$MSB/.git/dopil-routes/2026-11-20-usage.txt` holding that path; in `gates.md`, the `spec-01` row closed and unchanged
+apart from the new prefix, and the marker line `Migrated <date>: restart on resume: code-01`; `code-01` superseded
+(`code-01 restarts as code-02`, its row `closed: superseded by code-02 (migration)`, the line `code-01 superseded by
+code-02`); in `gates-at-restart.md`, the row `code-02` `open (restarted from code-01…)`; `#1` in
+`code-02/codex/known-items.md`, `code-02/base-sha` equal to `MBASE`, and `code-02` with a discovery of its own (not
+the fixture's `thread-id`); the reviewer's
+decision on `#1` in that discovery, kept in `code-02`'s ledger: CONFIRMED, then fixed and verified, or, when the
+executor fixed P before that discovery, NOT A DEFECT with the fix inside the reviewed diff; `code-02` closed over the
+old base by the normal exit condition, zero discovery findings or `VERDICT: ALL RESOLVED`. Recorded, not asserted:
+whether a message after `run` naming what moved and the gates that restart appears as assistant text, verbatim where
+it does, as the announcement is recorded (Claude Code often keeps such a message in its thinking).
+
+### M-claude · after-only
+
+Executor: Claude Code · Reviewers: codex · outside Orca, in its own sandbox.
+Request: RESUME
 
 ## Group E: dialog answers
 
@@ -529,7 +635,7 @@ Request: T2 + BY-CODEX
 ## Group H: builds and registries without an agent folder
 
 Inputs are mutant exports of the later build (`runtimes.md`, "Building an export"), loaded by the coordinator:
-`-no-kimi` without `skills/ship/references/agents/kimi`, `-no-codex` without `…/agents/codex`. Claude Code loads them
+`-no-kimi` without `skills/dopil/references/agents/kimi`, `-no-codex` without `…/agents/codex`. Claude Code loads them
 with `--plugin-dir`.
 
 ### H-no-kimi · after-only
@@ -570,23 +676,23 @@ python3 -I - "$SB" "$(git -C "$SB" rev-parse HEAD)" \
   "$(git -C "$SB" rev-parse --path-format=absolute --git-common-dir)" <<'PY'
 import os, sys
 sb, base, common = sys.argv[1:]
-root = os.path.join(sb, ".ship", "2026-11-01-usage-row")
+root = os.path.join(sb, ".dopil", "2026-11-01-usage-row")
 gate = os.path.join(root, "code-01")
 scope = "git diff %s -- wc/count.py tests/test_count.py" % base
 os.makedirs(os.path.join(gate, "codex"))
 os.makedirs(os.path.join(gate, "kimi"))
-os.makedirs(os.path.join(common, "ship-routes"))
+os.makedirs(os.path.join(common, "dopil-routes"))
 files = {
-    os.path.join(sb, ".ship", ".gitignore"): "*\n",
+    os.path.join(sb, ".dopil", ".gitignore"): "*\n",
     os.path.join(root, "gates.md"): (
-        "# ship route 2026-11-01-usage-row: wc/count.py usage error\n\n"
+        "# dopil route 2026-11-01-usage-row: wc/count.py usage error\n\n"
         "Route: one-off (code → gate → polish → delta gate). Executor: Claude Code.\n"
         "Reviewers: codex\n\n"
         "| Gate | Scope | Scratch | Reviewers | State | Proof |\n|---|---|---|---|---|---|\n"
         "| code-01 | %s | %s (codex/, kimi/) | codex, kimi (locked at r01) | open: round 01 discovery dispatched | - |\n"
         % (scope, gate)),
     os.path.join(gate, "base-sha"): base + "\n",
-    os.path.join(common, "ship-routes", "2026-11-01-usage-row.txt"): root + "\n",
+    os.path.join(common, "dopil-routes", "2026-11-01-usage-row.txt"): root + "\n",
 }
 for key in ("codex", "kimi"):
     files[os.path.join(gate, key, "base-sha")] = base + "\n"
@@ -691,17 +797,17 @@ The previous route's sandbox matrix, by id, and where each case lives now.
 ## Skill files and their cases
 
 For reruns after a change: a changed file reruns the instances of its row, selected by their first line. Paths are
-under `skills/ship/` and in the later layout; on the baseline the same text sits in `references/adapter-*.md` and
-`scripts/`.
+under `skills/dopil/`, the same on the baseline, an earlier dopil export, as on the build under test.
 
 | Changed file | Instances |
 |---|---|
 | `SKILL.md`, `references/executor.md`, `references/route.md`, any `references/agents/*/agent.md`, `skills/pragmatic-engineering/SKILL.md`, a file not listed here | all |
-| `references/reviewer-choice.md` | groups A, B, C, D, D3, E, F, H, R |
-| `references/reviewer.md`, `references/gate.md`, `references/prompts.md`, `references/ledger.md`, `references/triage.md`, `references/checks.md`, `references/report.md` | all except C-claude-several, C-codex-several, E-claude-cancel, E-agy-cancel, E-claude-none and group I2 |
+| `references/reviewer-choice.md` | groups A, B, C, D, D3, E, F, H, M, R |
+| `references/reviewer.md`, `references/gate.md`, `references/prompts.md`, `references/ledger.md`, `references/triage.md`, `references/checks.md`, `references/report.md` | all except C-claude-several, C-codex-several, E-claude-cancel, E-agy-cancel, E-claude-none and group I2, group M included |
 | `references/polish.md` | groups A and F |
 | `references/parallel-review.md` | every instance with two or more reviewers |
 | `references/adapter-orca.md` | every instance in Orca |
+| `references/migrate.py` | group M |
 | `references/contracts.md` | none: the unit tests check it |
 | `references/agents/claude-code/executor.md` | every instance whose executor is Claude Code |
 | `references/agents/codex/executor.md` | every instance whose executor is Codex |

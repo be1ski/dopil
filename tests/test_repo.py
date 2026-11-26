@@ -12,8 +12,8 @@ MANIFESTS = [".claude-plugin/plugin.json", ".claude-plugin/marketplace.json",
              ".codex-plugin/plugin.json", ".agents/plugins/marketplace.json",
              ".kimi-plugin/plugin.json", ".antigravity-plugin/plugin.json"]
 MARKETPLACES = [".claude-plugin/marketplace.json", ".agents/plugins/marketplace.json"]
-SKILLS = ["skills/ship/SKILL.md", "skills/pragmatic-engineering/SKILL.md"]
-REFERENCES = "skills/ship/references"
+SKILLS = ["skills/dopil/SKILL.md", "skills/pragmatic-engineering/SKILL.md"]
+REFERENCES = "skills/dopil/references"
 AGENTS = ROOT / REFERENCES / "agents"
 REVIEWER_PARTS = ["Contract card", "Requirements", "Preparation and pin", "Calls", "Acceptance", "Prompts",
                   "Orca", "Gate end", "Access", "Pitfalls"]
@@ -36,16 +36,28 @@ OVERRIDES = {
               "Tools": ["exec_command", "write_stdin", "functions.wait", "spawn_agent", "request_user_input",
                         "reviewer-choice.md", "plain text", "External CLI access", "**Access**"],
               "Models": ["user's instructions"],
-              "Route skills": ROUTE_SKILLS + ["How to read dependencies"],
+              "Route skills": ROUTE_SKILLS + ["How to read dependencies", "codex plugin list",
+                                              "codex plugin add superpowers@openai-curated-remote", "unverified"],
               "Instructions": ["AGENTS.md"]},
 }
+# The offer of a missing route skill (references/executor.md, "Route skills"), in the order the row gives it.
+OFFER = ["the plugin list", "reinstall commands for the user to run, then to open a new session",
+         "every command the install needs", "one question",
+         "Only an explicit yes the user submits runs them", "open a new session and run the same task again",
+         "show its output and stop, naming the command to rerun",
+         "the question is the last output and nothing is installed"]
+# Per card that adds to the row: the state source and the commands its **Route skills** must hold.
+OFFER_COMMANDS = {"antigravity": ["agy plugin list", "agy plugin install https://github.com/obra/superpowers",
+                                  "agy plugin enable superpowers", "unverified"],
+                  "kimi": ["/plugins install https://github.com/obra/superpowers", "/new", "for the user to type"]}
+README_AGENTS = ["Claude Code", "Codex", "Kimi Code", "Antigravity"]
 IDENTITY_SCRIPTS = ["kimi", "antigravity"]
 KIMI_SUBAGENT_CHECK = 'python3 -I "<skill-dir>/references/agents/kimi/identity.py" <agent_id>'
 INLINE_IDENTITY = "python3 -I - <<'PY'"
 LAUNCH_FAILURE = ("A launch that prints none of these lines, a missing script, a missing interpreter or a crash:"
                   " blocked; name it and stop before any dispatch; never run an improvised check instead.")
 # Profile directories a card copies whole, under AGENTS: their required files, and nothing else.
-PROFILES = {"antigravity/agy-reviewer": ["settings.json", ".agents/agents/ship-reviewer.md"]}
+PROFILES = {"antigravity/agy-reviewer": ["settings.json", ".agents/agents/dopil-reviewer.md"]}
 # Descriptor fields by role (spec, "Agent folder"); a field outside its role is absent.
 ALWAYS = ["Name", "Executor card", "Reviewer card"]
 EXECUTOR = ["Invocation", "Default reviewer"]
@@ -85,6 +97,8 @@ RUNTIME_ARTIFACTS = {
     # agents/claude-code/reviewer.md, of the gate scratch: "It holds `round-prompt.md`, `ledger.md`,
     # `reviewer.json`, `thread-id`, `last-review.txt` and the raw responses."
     "round-prompt.md",
+    # references/ledger.md, "Migration of an old scratch": a carried reviewer's file in a restarted gate's scratch.
+    "known-items.md",
 }
 
 # A path under references/: a file, a directory or a glob over them, without trailing punctuation. A `<placeholder>`
@@ -92,7 +106,7 @@ RUNTIME_ARTIFACTS = {
 PLACEHOLDER = r"<[^/<>\s]+>"
 REFERENCE = re.compile(r"references/((?:(?:[\w.*-]|{0})+/)*(?:(?:[\w.*-]|{0})*(?:[\w*-]|{0}))?)".format(PLACEHOLDER))
 BARE = re.compile(r"`([a-z0-9-]+\.md)`")
-DENYLIST = re.compile(r"~/\.agents/skills/ship|be1ski"
+DENYLIST = re.compile(r"~/\.agents/skills/dopil|be1ski"
                       r"|claude-(?:opus|sonnet|haiku|fable)-[0-9]|gpt-[0-9]"
                       r"|(?<![.\w])kimi-code/[A-Za-z0-9]"
                       r"|gemini-[0-9]")
@@ -205,15 +219,15 @@ class RepoTest(unittest.TestCase):
                 problems.append("%s: invalid JSON (%s)" % (rel, error))
                 continue
             name = data.get("name") if isinstance(data, dict) else None
-            if name != "ship":
-                problems.append("%s: name is %r, expected 'ship'" % (rel, name))
+            if name != "dopil":
+                problems.append("%s: name is %r, expected 'dopil'" % (rel, name))
             if has_version(data):
                 problems.append('%s: has a "version" key' % rel)
             if rel in MARKETPLACES:
                 plugins = data.get("plugins") if isinstance(data, dict) else None
                 if not (isinstance(plugins, list) and len(plugins) == 1 and isinstance(plugins[0], dict)
-                        and plugins[0].get("name") == "ship"):
-                    problems.append("%s: plugins must be exactly one entry named 'ship'" % rel)
+                        and plugins[0].get("name") == "dopil"):
+                    problems.append("%s: plugins must be exactly one entry named 'dopil'" % rel)
         self.assertEqual(problems, [])
 
     def test_skill_cores_fit_the_size_limit(self):
@@ -433,13 +447,59 @@ class RepoTest(unittest.TestCase):
         self.assertIn("written bare, at the start of the line, with no list marker or emphasis", recording)
         self.assertIn("on read, a `- ` list item or a bold form of the same line counts as the line", recording)
 
+    def test_restarted_gate_keeps_the_replaced_rows_set(self):
+        text = (ROOT / REFERENCES / "reviewer-choice.md").read_text(encoding="utf-8")
+        recording = " ".join(text.split("\n## Recording\n", 1)[1].split("\n## ", 1)[0].split())
+        self.assertIn("A gate restarted by the migration keeps the locked set the row of the gate it replaces records, "
+                      "even before its first discovery; when that row records none, the usual rule applies (the "
+                      "`Reviewers:` line with the stage's override).", recording)
+
+    def test_resume_reads_the_cards_reviewer_choice_resolves(self):
+        # The rule that picks a gate's reviewers lives in reviewer-choice.md only; SKILL.md defers to it.
+        text = " ".join((ROOT / SKILLS[0]).read_text(encoding="utf-8").split())
+        resume = text.split("**After a context compaction or a break**", 1)[1].split("<!-- phase-index:start -->")[0]
+        self.assertIn("the current gate's reviewer cards, those `references/reviewer-choice.md` resolves for it "
+                      "(its \"Recording\" rules, the lock of a gate restarted by the migration included)", resume)
+        self.assertNotIn("first discovery", resume)
+
+    def test_known_items_slot_in_every_discovery_framework(self):
+        text = (ROOT / REFERENCES / "prompts.md").read_text(encoding="utf-8")
+        slot = '<only if present: block "Known task-review items">'
+        for name in ["file mode", "diff mode", "polish delta", "snapshot delta"]:
+            prompt = text.split("\n## Discovery framework: %s\n" % name, 1)[1].split("```", 2)[1]
+            self.assertEqual(prompt.count(slot), 1, name)
+            self.assertLess(prompt.index("Scope of the work:"), prompt.index(slot), name)
+            self.assertLess(prompt.index(slot), prompt.index('<block "Exhaustive sweep">'), name)
+
+    def test_migration_check_matches_the_path_literally(self):
+        # A scratch path with parentheses, `/work/Project (client)/...`, is not a pattern: pgrep -f would miss it.
+        # The paths come from a file, so the check's own command line does not hold them and cannot match itself.
+        text = " ".join((ROOT / REFERENCES / "ledger.md").read_text(encoding="utf-8").split())
+        migration = text.split("## Migration of an old scratch", 1)[1]
+        self.assertNotIn("pgrep", migration)
+        self.assertIn("`ps -Aww -o pid=,args= | grep -F -f <file>`", migration)
+
+    def test_restart_inputs_are_read_by_the_executor(self):
+        text = " ".join((ROOT / REFERENCES / "ledger.md").read_text(encoding="utf-8").split())
+        restart = text.split("**Restart on resume.**", 1)[1]
+        for key in ['"scratch": "<old scratch>"', '"scope": "<scope>"', '"header": "<opening lines>"']:
+            self.assertIn(key, restart)
+        self.assertIn("or `null` for a gate that was never prepared, which has none: nothing is copied then", restart)
+        self.assertIn("a `scratch` that does not exist or lies outside the route root", restart)
+        self.assertNotIn("Scratch cell", restart)
+
+    def test_superseded_gate_is_closed_for_every_purpose(self):
+        text = " ".join((ROOT / REFERENCES / "ledger.md").read_text(encoding="utf-8").split())
+        self.assertIn("A gate whose registry holds the outcome line `<gate> superseded by <new gate>` is closed for "
+                      "every purpose, whatever its old line or row still says; a resume continues `<new gate>`.", text)
+
     def test_kimi_naming_hint_example(self):
         found = descriptors()
         kimi = found["kimi"]
         # The card's keys, each a cross-vendor entry of the roster the descriptors build, so they are the hint's.
         self.assertEqual(naming_hint_keys(AGENTS / "kimi" / kimi["Executor card"]), ["codex", "gemini"])
         self.assertEqual("%s with %s" % (kimi["Invocation"], " and ".join(hint_keys(found, "kimi"))),
-                         "/skill:ship:ship <task> with codex and gemini")
+                         "/skill:dopil:dopil <task> with codex and gemini")
         # A build without the codex folder: the card's keys are not all in the roster, so the generic pick applies.
         without_codex = {folder: values for folder, values in found.items()
                          if folder in ORIGINAL_FOLDERS and folder != "codex"}
@@ -543,20 +603,20 @@ class RepoTest(unittest.TestCase):
         expected = {
             "claude-code": {"Name": "Claude Code",
                             "Executor card": "executor.md", "Reviewer card": "reviewer.md",
-                            "Invocation": "/ship <task>", "Default reviewer": "codex", "Binary": "claude",
+                            "Invocation": "/dopil <task>", "Default reviewer": "codex", "Binary": "claude",
                             "Reviewer name": "Claude Code", "Reviewer vendor": "Anthropic",
                             "Scratch key": "claude", "Finding prefix": "A", "Order": "2"},
             "codex": {"Name": "Codex", "Executor card": "executor.md", "Reviewer card": "reviewer.md",
-                      "Invocation": "$ship <task>", "Default reviewer": "claude", "Binary": "codex",
+                      "Invocation": "$dopil <task>", "Default reviewer": "claude", "Binary": "codex",
                       "Reviewer name": "Codex", "Reviewer vendor": "OpenAI",
                       "Scratch key": "codex", "Finding prefix": "C", "Order": "1"},
             "kimi": {"Name": "Kimi Code", "Executor card": "executor.md", "Reviewer card": "reviewer.md",
-                     "Invocation": "/skill:ship:ship <task>", "Default reviewer": "none", "Binary": "kimi",
+                     "Invocation": "/skill:dopil:dopil <task>", "Default reviewer": "none", "Binary": "kimi",
                      "Reviewer name": "Kimi Code", "Reviewer vendor": "Moonshot AI",
                      "Scratch key": "kimi", "Finding prefix": "K", "Order": "3"},
             "antigravity": {"Name": "Antigravity CLI",
                             "Executor card": "executor.md", "Reviewer card": "reviewer.md",
-                            "Invocation": "/ship:ship <task>", "Default reviewer": "none", "Binary": "agy",
+                            "Invocation": "/dopil:dopil <task>", "Default reviewer": "none", "Binary": "agy",
                             "Reviewer name": "Gemini, through the Antigravity CLI",
                             "Reviewer vendor": "Google",
                             "Scratch key": "gemini", "Finding prefix": "G", "Order": "4"},
@@ -573,3 +633,43 @@ class RepoTest(unittest.TestCase):
                 if card != "none" and not (AGENTS / folder / card).is_file():
                     problems.append("%s: %s %s does not exist" % (folder, field, card))
         self.assertEqual(problems, [])
+
+    def test_route_skills_offer_rule(self):
+        text = (ROOT / REFERENCES / "executor.md").read_text(encoding="utf-8")
+        row = next(" ".join(p.split()) for p in text.split("\n\n") if p.startswith("**Route skills.**"))
+        positions = [row.find(phrase) for phrase in OFFER]
+        self.assertNotIn(-1, positions, [phrase for phrase in OFFER if phrase not in row])
+        self.assertEqual(positions, sorted(positions))
+        route = (ROOT / REFERENCES / "route.md").read_text(encoding="utf-8")
+        preflight = next(" ".join(p.split()) for p in route.split("\n\n") if p.startswith("**Route skills.**"))
+        self.assertIn("If one is absent, name it, then do what that **Route skills** says for a missing skill.",
+                      preflight)
+        self.assertNotIn("stop", preflight)
+
+    def test_route_skills_card_commands(self):
+        problems = []
+        for folder, needed in sorted(OFFER_COMMANDS.items()):
+            body = " ".join(dict(card_parts(executor_cards()[folder])).get("Route skills", "").split())
+            problems.extend("%s: Route skills lacks %r" % (folder, marker) for marker in needed if marker not in body)
+        self.assertEqual(problems, [])
+
+    def test_superpowers_repair_uses_the_installed_id_and_a_new_session(self):
+        # Enable and reinstall act on the plugin id `codex plugin list` shows; only an absent plugin gets the default.
+        codex = " ".join(dict(card_parts(executor_cards()["codex"])).get("Route skills", "").split())
+        for needed in ['`[plugins."<plugin id>"]`',
+                       "`codex plugin remove <plugin id>` then `codex plugin add <plugin id>`",
+                       "for the user to run, then to open a new session"]:
+            self.assertIn(needed, codex)
+        self.assertEqual(codex.count("superpowers@openai-curated-remote"), 1, codex)
+        agy = " ".join(dict(card_parts(executor_cards()["antigravity"])).get("Route skills", "").split())
+        self.assertIn("show `agy plugin enable superpowers` for the user to run, then to open a new session", agy)
+
+    def test_readme_superpowers_only_for_claude_code(self):
+        text = (ROOT / "README.md").read_text(encoding="utf-8")
+        install = text.split("\n### Install\n", 1)[1].split("\n### ", 1)[0]
+        pieces = re.split(r"^(%s)$" % "|".join(README_AGENTS), install, flags=re.MULTILINE)
+        blocks = dict(zip(pieces[1::2], pieces[2::2]))
+        self.assertEqual(sorted(blocks), sorted(README_AGENTS))
+        for agent in ["Codex", "Kimi Code", "Antigravity"]:
+            self.assertNotIn("superpowers", blocks[agent], agent)
+        self.assertIn("claude plugin marketplace add anthropics/claude-plugins-official", blocks["Claude Code"])

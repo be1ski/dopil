@@ -1,7 +1,7 @@
 {
-  "name": "ship",
-  "interface": { "displayName": "Ship" },
+  "name": "dopil",
+  "interface": { "displayName": "Dopil" },
   "plugins": [
-    { "name": "ship", "source": { "source": "local", "path": "./" }, "category": "Productivity" }
+    { "name": "dopil", "source": { "source": "local", "path": "./" }, "category": "Productivity" }
   ]
 }

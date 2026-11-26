@@ -9,7 +9,7 @@ import unittest
 from pathlib import Path
 
 
-AGENTS = Path(__file__).resolve().parent.parent / "skills/ship/references/agents"
+AGENTS = Path(__file__).resolve().parent.parent / "skills/dopil/references/agents"
 KIMI = AGENTS / "kimi/identity.py"
 ANTIGRAVITY = AGENTS / "antigravity/identity.py"
 SECRET = "SECRET-123"

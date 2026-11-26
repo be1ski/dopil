@@ -33,7 +33,7 @@ if [ -n "${SMOKE_EXTRA_SKILL_DIR:-}" ]; then
 fi
 
 codex plugin marketplace add "$REPO"
-codex plugin add ship@ship
+codex plugin add dopil@dopil
 codex debug prompt-input hi > "$H/prompt.txt"
 
 # The catalogue lines sit inside JSON strings with escaped newlines: decode before matching.
@@ -59,23 +59,23 @@ try:
     text = "\n".join(strings(json.loads(raw)))
 except ValueError:
     text = raw
-for name, pattern, present in [("ship:ship", r"^- ship:ship: ", True),
-                               ("ship:pragmatic-engineering", r"^- ship:pragmatic-engineering: ", True),
-                               ("no plain ship entry", r"^- ship: ", False)]:
+for name, pattern, present in [("dopil:dopil", r"^- dopil:dopil: ", True),
+                               ("dopil:pragmatic-engineering", r"^- dopil:pragmatic-engineering: ", True),
+                               ("no plain dopil entry", r"^- dopil: ", False)]:
     if bool(re.search(pattern, text, re.MULTILINE)) != present:
         sys.exit("smoke_codex: assertion failed: " + name)
 PY
 
-ls "$CODEX_HOME"/plugins/cache/ship/ship/*/skills/ship/SKILL.md \
-   "$CODEX_HOME"/plugins/cache/ship/ship/*/skills/pragmatic-engineering/SKILL.md
+ls "$CODEX_HOME"/plugins/cache/dopil/dopil/*/skills/dopil/SKILL.md \
+   "$CODEX_HOME"/plugins/cache/dopil/dopil/*/skills/pragmatic-engineering/SKILL.md
 
 fail() { echo "smoke_codex: $*" >&2; exit 1; }
 # The nested agent folders, expected from the source tree: every descriptor, every card it names (backticked or
 # not, none skipped) and both identity scripts.
-set -- "$CODEX_HOME"/plugins/cache/ship/ship/*/
+set -- "$CODEX_HOME"/plugins/cache/dopil/dopil/*/
 [ "$#" -eq 1 ] && [ -d "$1" ] || fail "expected one installed copy, found: $*"
 INSTALLED="$1"
-for src in "$REPO"/skills/ship/references/agents/*/agent.md; do
+for src in "$REPO"/skills/dopil/references/agents/*/agent.md; do
   rel="${src#"$REPO"/}"
   [ -f "$INSTALLED/$rel" ] || fail "missing $rel under $INSTALLED"
   for card in $(sed -nE 's/^\|[[:space:]]*(Executor|Reviewer) card[[:space:]]*\|[[:space:]]*`?([^`|[:space:]]+)`?[[:space:]]*\|[[:space:]]*$/\2/p' "$src"); do
@@ -84,8 +84,8 @@ for src in "$REPO"/skills/ship/references/agents/*/agent.md; do
   done
 done
 for folder in kimi antigravity; do
-  [ -f "$INSTALLED/skills/ship/references/agents/$folder/identity.py" ] \
-    || fail "missing skills/ship/references/agents/$folder/identity.py under $INSTALLED"
+  [ -f "$INSTALLED/skills/dopil/references/agents/$folder/identity.py" ] \
+    || fail "missing skills/dopil/references/agents/$folder/identity.py under $INSTALLED"
 done
 codex --version
 echo "smoke_codex: OK"

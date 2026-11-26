@@ -1,7 +1,7 @@
 {
-  "name": "ship",
+  "name": "dopil",
   "description": "Cross-vendor review loop: spec, plan and implementation are driven until an independent reviewer from another vendor comes back clean.",
   "skills": "./skills/",
   "keywords": ["review", "code-review", "workflow", "codex"],
-  "interface": { "displayName": "Ship", "shortDescription": "Cross-vendor review loop" }
+  "interface": { "displayName": "Dopil", "shortDescription": "Cross-vendor review loop" }
 }

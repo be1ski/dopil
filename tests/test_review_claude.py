@@ -14,7 +14,7 @@ import unittest
 from unittest.mock import patch
 
 
-SCRIPT = (Path(__file__).resolve().parent.parent / "skills" / "ship" / "references" / "agents" / "claude-code"
+SCRIPT = (Path(__file__).resolve().parent.parent / "skills" / "dopil" / "references" / "agents" / "claude-code"
           / "review_claude.py")
 
 
@@ -231,7 +231,7 @@ class RunnerTests(unittest.TestCase):
         self.assertEqual(record["usage_models"], ["claude-reviewer-a"])
 
     def test_discovery_creates_nested_scratch_directory(self):
-        self.scratch = self.cwd / ".ship" / "code-01"
+        self.scratch = self.cwd / ".dopil" / "code-01"
         self.assertEqual(self.invoke(), 0, self.errors)
         self.assertTrue((self.scratch / "reviewer.json").is_file())
 

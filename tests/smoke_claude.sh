@@ -31,25 +31,25 @@ printf '%s' "$VALIDATE" \
 claude plugin marketplace add anthropics/claude-plugins-official \
   || fail "adding anthropics/claude-plugins-official failed: this script needs network and git access to GitHub"
 claude plugin marketplace add "$REPO"
-claude plugin install ship@ship
+claude plugin install dopil@dopil
 
 LIST="$(claude plugin list --json)"
-ENTRY="$(printf '%s' "$LIST" | jq '.[] | select(.id == "ship@ship")')"
-[ -n "$ENTRY" ] || fail "ship@ship is missing from claude plugin list --json"
+ENTRY="$(printf '%s' "$LIST" | jq '.[] | select(.id == "dopil@dopil")')"
+[ -n "$ENTRY" ] || fail "dopil@dopil is missing from claude plugin list --json"
 ROOT="$(printf '%s' "$ENTRY" | jq -r '.installPath // empty')"
 if [ -z "$ROOT" ]; then
-  set -- "$H"/plugins/cache/ship/ship/*/
+  set -- "$H"/plugins/cache/dopil/dopil/*/
   if [ "$#" -eq 1 ]; then ROOT="$1"; fi
 fi
-[ -n "$ROOT" ] && [ -d "$ROOT" ] || fail "no plugin root for ship@ship"
+[ -n "$ROOT" ] && [ -d "$ROOT" ] || fail "no plugin root for dopil@dopil"
 
-for skill in ship pragmatic-engineering; do
+for skill in dopil pragmatic-engineering; do
   [ -f "$ROOT/skills/$skill/SKILL.md" ] || fail "missing skills/$skill/SKILL.md under $ROOT"
 done
 
 # The nested agent folders, expected from the source tree: every descriptor, every card it names (backticked or
 # not, none skipped) and both identity scripts.
-for src in "$REPO"/skills/ship/references/agents/*/agent.md; do
+for src in "$REPO"/skills/dopil/references/agents/*/agent.md; do
   rel="${src#"$REPO"/}"
   [ -f "$ROOT/$rel" ] || fail "missing $rel under $ROOT"
   for card in $(sed -nE 's/^\|[[:space:]]*(Executor|Reviewer) card[[:space:]]*\|[[:space:]]*`?([^`|[:space:]]+)`?[[:space:]]*\|[[:space:]]*$/\2/p' "$src"); do
@@ -58,15 +58,15 @@ for src in "$REPO"/skills/ship/references/agents/*/agent.md; do
   done
 done
 for folder in kimi antigravity; do
-  [ -f "$ROOT/skills/ship/references/agents/$folder/identity.py" ] \
-    || fail "missing skills/ship/references/agents/$folder/identity.py under $ROOT"
+  [ -f "$ROOT/skills/dopil/references/agents/$folder/identity.py" ] \
+    || fail "missing skills/dopil/references/agents/$folder/identity.py under $ROOT"
 done
 
 # Load state: `enabled` and `errors` as named by `claude plugin list --json` in Claude Code 2.1.
 printf '%s\n' "$ENTRY"
 printf '%s' "$ENTRY" | jq -e 'has("enabled")' > /dev/null || fail "cannot determine load state"
 printf '%s' "$ENTRY" | jq -e '.enabled == true and ((.errors // []) | length == 0)' > /dev/null \
-  || fail "ship@ship is not loaded (entry above)"
+  || fail "dopil@dopil is not loaded (entry above)"
 
 SUPERPOWERS="$(printf '%s' "$LIST" | jq -r '.[] | select(.id | startswith("superpowers@")) | "\(.id) \(.version)"')"
 [ -n "$SUPERPOWERS" ] || fail "no superpowers@ entry in claude plugin list --json: the dependency was not installed"

@@ -1,9 +1,9 @@
 {
-  "name": "ship",
+  "name": "dopil",
   "owner": { "name": "be1ski" },
   "description": "Cross-vendor review loop: spec, plan and implementation are driven until an independent reviewer from another vendor comes back clean.",
   "allowCrossMarketplaceDependenciesOn": ["claude-plugins-official"],
   "plugins": [
-    { "name": "ship", "source": "./" }
+    { "name": "dopil", "source": "./" }
   ]
 }
