@@ -63,3 +63,37 @@ Dopil asks which of your other agents review, or uses the only one you have; nam
 Feature: spec → plan → code → polish. One-off: code → polish.
 
 Features run in a git worktree. Dopil never merges or pushes.
+
+### Moving from ship
+
+Close every ship session, then paste into each agent that has ship:
+
+```
+Move from ship to dopil: follow https://github.com/be1ski/dopil#moving-from-ship
+```
+
+The agent installs dopil as Install says and finds every `.ship` folder in your projects. From the folder that holds each, it runs the installed plugin's `skills/dopil/references/migrate.py` as the rule "Migration of an old scratch" in its `skills/dopil/references/ledger.md` says: `check`, shows you what would move and, where you agree, `run`. It names every `.ship` it left and why, then removes ship.
+
+Claude Code
+
+```sh
+claude plugin uninstall ship@ship
+claude plugin marketplace remove ship
+```
+
+Codex
+
+```sh
+codex plugin remove ship@ship
+codex plugin marketplace remove ship
+```
+
+Kimi Code
+
+Install dopil as Install says before you paste the line, and once the agent is done type /plugins, select ship, press D and choose Remove plugin
+
+Antigravity
+
+```sh
+agy plugin uninstall ship
+```

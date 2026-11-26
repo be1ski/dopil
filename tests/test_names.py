@@ -25,10 +25,14 @@ ALLOWLIST: Dict[str, Set[str]] = {
     "tests/test_migrate.py": set(MIGRATION),
     "skills/dopil/references/ledger.md": set(MIGRATION),
     "tests/live/cases.md": set(MIGRATION),
+    # The README's move section names the old plugin, its scratch, its remove commands and its own anchor.
+    "README.md": {OLD, OLD + "@" + OLD, "." + OLD, "dopil#moving-from-" + OLD},
 }
-# A path whose literals are allowed only in one `## ` section, from its heading to the next `## ` heading:
-# the live kit's case M writes the old layout, and no other case may name it.
-SECTIONS = {"tests/live/cases.md": "## Group M: "}
+# A path whose literals are allowed only in one section, from its first exact heading line to the next heading of the
+# same or a higher level: the live kit's case M writes the old layout, and no other case may name it; only the
+# README's move section may name the old plugin. Code blocks are not parsed, so a "#" line in one ends the section
+# early: the scan then fails loudly instead of passing silently.
+SECTIONS = {"tests/live/cases.md": "## Group M: an old route migrated on resume", "README.md": "### Moving from " + OLD}
 BEFORE = set("/\"'`(")
 AFTER = set("/\"'`),;:")
 AGENTS = ROOT / "skills" / NEW / "references" / "agents"
@@ -62,13 +66,16 @@ def find_old_names(path: str, text: str) -> List[str]:
     """Every hit of the old name in the path or its text outside the path's allowlist, as `path:line: text`."""
     literals = ALLOWLIST.get(path, set())
     heading = SECTIONS.get(path)
+    bound = re.compile("#{1,%d} " % heading.index(" ")) if heading else None
     inside = heading is None  # the path itself is outside every section
+    opened = False
     found = []
     if bad_hits(path, literals if inside else set()):
         found.append("%s:path: %s" % (path, path))
     for number, line in enumerate(text.split("\n"), 1):
-        if heading is not None and line.startswith("## "):
-            inside = line.startswith(heading)
+        if bound is not None and bound.match(line):
+            inside = line.rstrip() == heading and not opened
+            opened = opened or inside
         if bad_hits(line, literals if inside else set()):
             found.append("%s:%d: %s" % (path, number, line.strip()))
     return found
@@ -146,9 +153,24 @@ class NamesTest(unittest.TestCase):
     def test_cases_allow_the_migration_literals_only_in_case_m(self):
         path = "tests/live/cases.md"
         dotted, routes = "a/." + OLD + "/r1", "`" + OLD + "-routes`"
-        text = "\n".join(["## Group D3: x", dotted, "## Group M: y", "### M-claude · after-only", dotted, routes,
+        text = "\n".join(["## Group D3: x", dotted, SECTIONS[path], "### M-claude · after-only", dotted, routes,
                           "## Group E: z", routes])
         self.assertEqual(find_old_names(path, text), [path + ":2: " + dotted, path + ":8: " + routes])
+
+    def test_readme_allows_the_old_name_only_in_its_move_section(self):
+        path, line = "README.md", "claude plugin uninstall " + OLD + "@" + OLD
+        text = "\n".join(["### Install", line, SECTIONS[path], line,
+                          "Paste `." + OLD + "` and https://github.com/be1ski/dopil#moving-from-" + OLD,
+                          "## Later", line, SECTIONS[path] + "ping", line, SECTIONS[path], line])
+        # A higher heading ends the section, a lookalike heading does not open it, and a second copy of the heading
+        # is itself reported and does not open it again.
+        expected = [path + ":%d: %s" % (number, line) for number in (2, 7, 9)]
+        expected += [path + ":10: " + SECTIONS[path], path + ":11: " + line]
+        self.assertEqual(find_old_names(path, text), expected)
+        self.assertEqual(find_old_names(path, text.replace("\n", "\r\n")), expected)
+        # A "#" line in a code block counts as a heading: the section ends early and the scan fails loudly.
+        fenced = "\n".join([SECTIONS[path], "```sh", "# a comment", line, "```"])
+        self.assertEqual(find_old_names(path, fenced), [path + ":4: " + line])
 
     def test_antigravity_reviewer_names_agree(self):
         profiles = AGENTS / "antigravity" / "agy-reviewer" / ".agents" / "agents"
