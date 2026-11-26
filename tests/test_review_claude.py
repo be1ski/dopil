@@ -14,7 +14,8 @@ import unittest
 from unittest.mock import patch
 
 
-SCRIPT = Path(__file__).resolve().parent.parent / "skills" / "ship" / "scripts" / "review_claude.py"
+SCRIPT = (Path(__file__).resolve().parent.parent / "skills" / "ship" / "references" / "agents" / "claude-code"
+          / "review_claude.py")
 
 
 class RunnerTests(unittest.TestCase):

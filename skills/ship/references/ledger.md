@@ -18,7 +18,7 @@ In `<scratch-root>/gates.md` keep the registry: gate, scope, absolute scratch pa
 proof of closure. Keep there as well the absolute paths of the spec, the plan and the SDD progress ledger for
 transitions between stages. When the worktree changes, keep using this registry and the listed directories;
 do not overwrite closed gates, add a new gate as a separate row.
-A run that did not happen is an attempt of the same gate. If the adapter requires a new scratch for the retry,
+A run that did not happen is an attempt of the same gate. If the reviewer card requires a new scratch for the retry,
 keep a reference to the failed attempt and update the active path in the registry, without losing the base and
 the ledger.
 
@@ -36,6 +36,6 @@ raised by verification rounds — its title verbatim and what was done about it.
 here": that is not an argument but suggestion, and it breaks the reviewer.
 
 Next to it lie `base-sha` (for a git gate) or snapshots with a scope description, `thread-id` (the discovery
-thread, mandatory), `last-review.txt` (the output of the last round) and the adapter's files. A new gate — a new
+thread, mandatory), `last-review.txt` (the output of the last round) and the reviewer card's files. A new gate — a new
 id; do not mix the threads of different gates and parallel tasks. After a break, read the registry and the
 ledgers, including carried-over SDD entries: readiness and the final report are assembled over the whole route.

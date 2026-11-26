@@ -1,6 +1,6 @@
 # Executor: generic rule
 
-Read by an executor without a full adapter of its own; a card overrides a row only where it says so. The rows cover
+Read by every executor, before its card if it has one; a card overrides a row only where it says so. The rows cover
 the executor contract (`references/contracts.md`) with the runtime's own tools and add the conventions every executor
 shares.
 
@@ -45,11 +45,15 @@ them.
 and polish passes per the core's section "Baseline approach to review" (`SKILL.md`) and `references/gate.md`,
 section "Engineering baseline in review prompts".
 
-**Reviewer calls and long waits.** Per the chosen reviewers' adapters, which use only shell commands; a long run
+**Environment.** Never print the environment or a filtered dump of it: no bare `env`, `export`, `set` or
+`printenv`, and no `env | grep` of a prefix (`grep` over the environment is a dump too). Read a needed variable by its
+name, one named variable at a time, and never print a variable whose name says token, key, secret or password.
+
+**Reviewer calls and long waits.** Per the chosen reviewers' cards, which use only shell commands; a long run
 goes through **Background launch**.
 
-**Orca without a card.** Reviewers still run as Orca workers per `adapter-orca.md`. Edits stay with the executor's
-own edit subagents or its sequential inline work: an exception to "In Orca only workers edit code", named in the
-report. The fingerprint and one-writer rules of `adapter-orca.md` are kept, with these in-session writers in place
-of writing workers: every one of them has settled (finished, nothing left running in the background) before any
-fingerprint, save or rollback.
+**Orca without a card.** Applies to an executor that has no card or whose card supplies no Orca writing workers.
+Reviewers still run as Orca workers per `adapter-orca.md`. Edits stay with the executor's own edit subagents or its
+sequential inline work: an exception to "In Orca only workers edit code", named in the report. The fingerprint and
+one-writer rules of `adapter-orca.md` are kept, with these in-session writers in place of writing workers: every one
+of them has settled (finished, nothing left running in the background) before any fingerprint, save or rollback.

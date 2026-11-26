@@ -2,14 +2,14 @@
 
 Applies to every gate that runs with more than one chosen reviewer (`references/reviewer-choice.md`), whatever the
 stage: spec, plan, code, polish delta, confirmation pass. The chosen reviewers are equal. Each follows its own
-adapter and the core rules; this file lists only what changes.
+card and the core rules; this file lists only what changes.
 
 ## Preparation and layout
 
-- Every chosen reviewer of the gate passes preflight and its adapter's preparation before any discovery starts. One
+- Every chosen reviewer of the gate passes preflight and its card's preparation before any discovery starts. One
   of them blocked: the gate is blocked; never go on with fewer reviewers.
 - Each reviewer's scratch `<gate scratch>/<key>/`, with the scratch key of `references/reviewer-choice.md`, is a
-  complete gate scratch for its adapter, and `SHIP_GATE` points there: its own copy of `base-sha` or of the snapshot
+  complete gate scratch for its card, and `SHIP_GATE` points there: its own copy of `base-sha` or of the snapshot
   description, its `thread-id`, `ledger.md`, pin and round files.
 - The gate scratch root holds the shared round state. Before the shared round's first reviewer call, write
   `round-NN-state` (the scoped diff or snapshot hash; it is also that round's stall-rule save) and the
@@ -36,7 +36,7 @@ adapter and the core rules; this file lists only what changes.
   has ended); a reviewer whose previous attempt may still run is never started. A voided discovery freezes no list:
   every reviewer runs discovery again on the next recorded state. A voided verification keeps the last counted
   lists: every reviewer verifies the next recorded state in its same thread.
-- Each reviewer's ledger records which rounds counted and marks a voided round as voided, whatever its adapter
+- Each reviewer's ledger records which rounds counted and marks a voided round as voided, whatever its card
   already wrote to `last-review.txt`. The ledger, not that file, is what triage and the report read.
 - Triage applies its normal rules to every finding of every list: check the premise, fix, reject with proof, or
   escalate. When findings of several reviewers lead to the same fix, the fix is made once and each reviewer gets the
@@ -59,8 +59,7 @@ adapter and the core rules; this file lists only what changes.
 
 - The reviewer workers of a round run at the same time; there are no writing workers during the round, and one
   fingerprint pair covers them all.
-- A Kimi or Gemini terminal of a gate is closed when the gate ends, as `references/adapter-reviewer-kimi.md`,
-  "Orca", and `references/adapter-reviewer-gemini.md`, "Gate end", say.
+- A reviewer's kept terminal of a gate is closed when the gate ends, as every reviewer card's **Gate end** says.
 
 ## Final report
 

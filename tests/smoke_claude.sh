@@ -47,6 +47,21 @@ for skill in ship pragmatic-engineering; do
   [ -f "$ROOT/skills/$skill/SKILL.md" ] || fail "missing skills/$skill/SKILL.md under $ROOT"
 done
 
+# The nested agent folders, expected from the source tree: every descriptor, every card it names (backticked or
+# not, none skipped) and both identity scripts.
+for src in "$REPO"/skills/ship/references/agents/*/agent.md; do
+  rel="${src#"$REPO"/}"
+  [ -f "$ROOT/$rel" ] || fail "missing $rel under $ROOT"
+  for card in $(sed -nE 's/^\|[[:space:]]*(Executor|Reviewer) card[[:space:]]*\|[[:space:]]*`?([^`|[:space:]]+)`?[[:space:]]*\|[[:space:]]*$/\2/p' "$src"); do
+    [ "$card" = none ] && continue
+    [ -f "$ROOT/${rel%agent.md}$card" ] || fail "missing ${rel%agent.md}$card under $ROOT"
+  done
+done
+for folder in kimi antigravity; do
+  [ -f "$ROOT/skills/ship/references/agents/$folder/identity.py" ] \
+    || fail "missing skills/ship/references/agents/$folder/identity.py under $ROOT"
+done
+
 # Load state: `enabled` and `errors` as named by `claude plugin list --json` in Claude Code 2.1.
 printf '%s\n' "$ENTRY"
 printf '%s' "$ENTRY" | jq -e 'has("enabled")' > /dev/null || fail "cannot determine load state"

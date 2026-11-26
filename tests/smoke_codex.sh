@@ -7,7 +7,7 @@ set -euo pipefail
 
 REPO="$(cd "${1:-.}" && pwd)"
 
-# Options adapter-reviewer-codex.md passes, per subcommand and as written there: an upstream
+# Options references/agents/codex/reviewer.md passes, per subcommand and as written there: an upstream
 # rename must fail here, not in a user's review. The option must open an option line of
 # --help, alone or after a short alias, so a mention in prose does not count.
 require_flags() {
@@ -68,5 +68,24 @@ PY
 
 ls "$CODEX_HOME"/plugins/cache/ship/ship/*/skills/ship/SKILL.md \
    "$CODEX_HOME"/plugins/cache/ship/ship/*/skills/pragmatic-engineering/SKILL.md
+
+fail() { echo "smoke_codex: $*" >&2; exit 1; }
+# The nested agent folders, expected from the source tree: every descriptor, every card it names (backticked or
+# not, none skipped) and both identity scripts.
+set -- "$CODEX_HOME"/plugins/cache/ship/ship/*/
+[ "$#" -eq 1 ] && [ -d "$1" ] || fail "expected one installed copy, found: $*"
+INSTALLED="$1"
+for src in "$REPO"/skills/ship/references/agents/*/agent.md; do
+  rel="${src#"$REPO"/}"
+  [ -f "$INSTALLED/$rel" ] || fail "missing $rel under $INSTALLED"
+  for card in $(sed -nE 's/^\|[[:space:]]*(Executor|Reviewer) card[[:space:]]*\|[[:space:]]*`?([^`|[:space:]]+)`?[[:space:]]*\|[[:space:]]*$/\2/p' "$src"); do
+    [ "$card" = none ] && continue
+    [ -f "$INSTALLED/${rel%agent.md}$card" ] || fail "missing ${rel%agent.md}$card under $INSTALLED"
+  done
+done
+for folder in kimi antigravity; do
+  [ -f "$INSTALLED/skills/ship/references/agents/$folder/identity.py" ] \
+    || fail "missing skills/ship/references/agents/$folder/identity.py under $INSTALLED"
+done
 codex --version
 echo "smoke_codex: OK"

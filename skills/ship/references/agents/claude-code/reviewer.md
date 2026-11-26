@@ -1,9 +1,6 @@
-# Reviewer adapter: Claude Code
+# Reviewer card: Claude Code
 
-The external reviewer for the Codex executor: Anthropic, Claude family. Requires `claude` in PATH,
-its existing authorization and Python 3 on macOS/Linux. CLI check: `claude --version`, `claude --help`.
-The commands below are written for Claude Code 2.1.260; on incompatibility, check the help, do not lift
-tool restrictions and do not switch to review by the executor.
+The external reviewer for the Codex executor: Anthropic, Claude family.
 
 ## Contract card
 
@@ -15,16 +12,17 @@ tool restrictions and do not switch to review by the executor.
 | Clean / findings / did not happen | A successful JSON `result` and a strict last line per the contract below. Errors, tool refusal and empty output are not a clean review |
 | Files without git | Read/Glob/Grep read the given absolute paths; git is not needed |
 | Current state | In file mode the reviewer re-reads the files. For a diff the executor attaches the freshly computed current delta on every round |
-| Confirmation of reading the baseline and the scope | All modes of this adapter are controlled text: the `REVIEWED` and `CONTEXT` lists in the discovery response; the baseline entry in `CONTEXT` is mandatory. It can be cross-checked in `round-NNNN/stdout.json`: a `tool_use` named `Read` with the needed path and its `tool_result` without `is_error` |
+| Confirmation of reading the baseline and the scope | All modes of this card are controlled text: the `REVIEWED` and `CONTEXT` lists in the discovery response; the baseline entry in `CONTEXT` is mandatory. It can be cross-checked in `round-NNNN/stdout.json`: a `tool_use` named `Read` with the needed path and its `tool_result` without `is_error` |
 | Long wait | The helper does not kill the process on a short timeout; the executor watches it through its runtime's mechanism |
 | Settings pin | The full model ID and effort are passed explicitly on discovery, saved and repeated on verify. Do not substitute another model, fallback or effort in the middle of a gate |
 
-## Preparation
+## Requirements
 
-For each gate pick a separate scratch inside the route root: for example
-`.ship/<route-id>/code-01/`, then `.ship/<route-id>/polish-01/`.
-It is excluded from the review. It holds `round-prompt.md`, `ledger.md`, `reviewer.json`, `thread-id`,
-`last-review.txt` and the raw responses. Different tasks do not share one scratch.
+Requires `claude` in PATH, its existing authorization and Python 3 on macOS/Linux. CLI check:
+`claude --version`, `claude --help`. The commands below are written for Claude Code 2.1.260; on
+incompatibility, check the help, do not lift tool restrictions and do not switch to review by the executor.
+
+## Preparation and pin
 
 Reviewer model: the most capable generally available Claude, effort always `high`. The personal
 `~/.claude/settings.json` does not affect the choice. The most capable class is `fable`; the CLI expands that
@@ -44,18 +42,23 @@ discovery and the ledger; verify takes them from the helper's state. Empty outpu
 question to the user about which model to use; do not fall back to the personal settings and do not change them.
 The `[1m]` suffix, if the user chose a model with it themselves, is kept on resume.
 
-## Discovery and verify
+## Calls
+
+For each gate pick a separate scratch inside the route root: for example
+`.ship/<route-id>/code-01/`, then `.ship/<route-id>/polish-01/`.
+It is excluded from the review. It holds `round-prompt.md`, `ledger.md`, `reviewer.json`, `thread-id`,
+`last-review.txt` and the raw responses. Different tasks do not share one scratch.
 
 `<skill-dir>` is the directory of the loaded skill.
 Replace the paths and values in angle brackets with concrete values:
 
 ```bash
-python3 <skill-dir>/scripts/review_claude.py discover \
+python3 <skill-dir>/references/agents/claude-code/review_claude.py discover \
   --cwd <work-dir> --scratch <gate-scratch> \
   --prompt <gate-scratch>/round-prompt.md \
   --model <full-Claude-ID> --effort <effort>
 
-python3 <skill-dir>/scripts/review_claude.py verify \
+python3 <skill-dir>/references/agents/claude-code/review_claude.py verify \
   --cwd <work-dir> --scratch <same-scratch> \
   --prompt <gate-scratch>/round-prompt.md
 ```
@@ -63,26 +66,35 @@ python3 <skill-dir>/scripts/review_claude.py verify \
 The helper runs `claude -p --safe-mode --tools Read,Glob,Grep --allowedTools Read,Glob,Grep
 --permission-mode dontAsk --disable-slash-commands --output-format stream-json --verbose`. The model, effort and ID
 are taken from the discovery arguments, then from the saved state. The prompt is passed via stdin.
-A zero exit code of the helper means a round that happened, **not** a clean review; read the verdict.
 
 If several Claude CLIs are installed, check the needed one via `command -v claude` and `--version`
 and pass its absolute path to discovery as `--claude <path>`. The helper saves the resolved
 path of the executable and repeats it on verify, regardless of the PATH of the next launch.
 For example, `~/.local/bin/claude` and `/opt/homebrew/bin/claude` may be different versions.
 
-Discovery in both modes ends with exactly `VERDICT: NO FINDINGS` or `VERDICT: FINDINGS`.
-Verify — exactly `VERDICT: ALL RESOLVED` or `VERDICT: OPEN ITEMS REMAIN`.
-`ALL RESOLVED` does not close the gate while the ledger still has open findings or the checks have not passed.
-After an error, look at stderr and the raw response of that particular round; do not count an old clean response.
 After a failed discovery, repeat discovery in a new scratch: there is no frozen list yet,
 so verify does not replace it. After a failed verify, verify may be repeated in the same scratch.
 The `.lock` file may remain after a round: the lock belongs to processes, not to the file's existence.
 While the runner or its Claude process is alive, a second launch in the same scratch is forbidden. After they
 finish, the lock is released automatically; deleting `.lock` to get around a live process is not allowed.
 
-## Prompt and read boundaries
+Do not send Ctrl-C because of missing output: Claude may return JSON only after the whole round has finished.
 
-Assemble the prompt from the `prompts.md` frameworks in controlled text mode: scope, finding criteria,
+`reviewer.json` and `thread-id` in the scratch store the **Claude session_id**. Only this ID is used
+for verification. After compaction, read these files and the ledger; continue the same thread.
+
+## Acceptance
+
+A zero exit code of the helper means a round that happened, **not** a clean review; read the verdict.
+
+Discovery in both modes ends with exactly `VERDICT: NO FINDINGS` or `VERDICT: FINDINGS`.
+Verify — exactly `VERDICT: ALL RESOLVED` or `VERDICT: OPEN ITEMS REMAIN`.
+`ALL RESOLVED` does not close the gate while the ledger still has open findings or the checks have not passed.
+After an error, look at stderr and the raw response of that particular round; do not count an old clean response.
+
+## Prompts
+
+Assemble the prompt from the `references/prompts.md` frameworks in controlled text mode: scope, finding criteria,
 `REVIEWED`/`CONTEXT`, the sweep only on discovery; responses to findings without a fresh sweep on verify.
 Start every round with the "Engineering baseline" block: `pragmatic-engineering` is read explicitly via Read
 or passed as full text, because `--safe-mode` disables skill autoloading. The role lines
@@ -123,7 +135,32 @@ again; replace the `run git diff` instruction from the template with `Judge the 
 do not replace its content with the executor's retelling. For a file with someone else's pre-existing edits
 use the delta from a snapshot, as the core requires (`references/route.md`).
 
-## CLI specifics
+## Orca
+
+Orca agent worker: the reviewer table of `references/adapter-orca.md` applies with these values.
+
+| Step | This reviewer |
+|---|---|
+| Who the reviewer is | `--agent claude` |
+| Model and effort pin | The pair from "Preparation and pin", passed in `--model` and `--effort`. Write `model` and `effort` from the `worker-start` receipt to the ledger |
+| Prompt mode | Claude only reads files, so the executor attaches a freshly computed diff to the prompt on discovery and on every verify |
+| The worker did not start | The headless fallback: this card's standard command ("Calls"), only after the proof that "If the worker did not start" in `references/adapter-orca.md` requires |
+
+**A reopened Claude worker does not keep its permission mode.** Orca resumes the session without the
+permission flag of the first start, so the worker runs in the default mode of the user's Claude Code settings.
+A reopened worker that goes silent may be waiting for an approval in its tab: tell the user to look there
+before treating it as stuck.
+
+## Gate end
+
+None.
+
+## Access
+
+Claude needs the network, the existing authorization (including the keychain) and writing session state to
+`~/.claude`.
+
+## Pitfalls
 
 - `--safe-mode` disables autoloading of skills, plugins, hooks, MCP and CLAUDE.md while keeping normal
   authorization. That is why the reviewer reads the project instructions explicitly.

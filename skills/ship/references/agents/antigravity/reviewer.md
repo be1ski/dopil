@@ -1,27 +1,30 @@
-# Reviewer adapter: Gemini
+# Reviewer card: Gemini, through the Antigravity CLI
 
 Read only when Gemini is chosen (`references/reviewer-choice.md`). The reviewer is the Antigravity CLI `agy`:
-vendor Google, Gemini family. Requires `agy` installed and logged in, `jq` and `python3`. The commands are written
-for agy 1.5.12.
-Gemini chosen but not usable: name the blocker and stop. Never fall back to another reviewer, and never continue
-with fewer reviewers.
+vendor Google, Gemini family.
 
 ## Contract card
 
 | Capability | Covered by |
 |---|---|
 | Who the reviewer is | Antigravity CLI, Google, Gemini family: the pinned `agy` path and version and a Gemini model id that carries its effort level ("Preparation and pin"). Headless, every attempt's transcript names the pinned id on every step; in Orca, the transcript of the conversation the worker names. Not fit for an executor of the Gemini family |
-| Discovery in prose over a scope | Headless `agy` with the prompt on stdin, or in Orca a worker started with `--agent antigravity`. Controlled text from `prompts.md`; the scope in prose, a diff and a split file in input files |
+| Discovery in prose over a scope | Headless `agy` with the prompt on stdin, or in Orca a worker started with `--agent antigravity`. Controlled text from `references/prompts.md`; the scope in prose, a diff and a split file in input files |
 | Verification in the same thread | Headless: `--conversation <thread-id>`, the conversation id, every other flag repeated. Orca: a new task into the same kept-open terminal, which continues the same conversation and process |
-| Clean / findings / did not happen | The last-line contract. Headless an attempt counts only if the "Attempt check" passes; in Orca only a `worker_done` with `outcome: succeeded` that passes the "Orca response check". Exit code 0 alone proves nothing |
+| Clean / findings / did not happen | The last-line contract. Headless an attempt counts only if the check of "Acceptance" passes; in Orca only a `worker_done` with `outcome: succeeded` that passes the "Orca response check". Exit code 0 alone proves nothing |
 | File mode without git | `read_file` reads absolute paths; git is not needed |
 | Current state | File mode: the reviewer re-reads the file, or its new parts. Diff and snapshot: every round the executor writes the current diff from the saved base into new input files |
 | Confirmation of reading | The `REVIEWED` and `CONTEXT` lists in every response, discovery and verification. Headless also a whole `read_file` of every file under "Files to read" in the transcript |
 | Long wait | Headless: the runtime's background mechanism; `--print-timeout` defaults to no limit. Orca: end the turn and wait for `worker_done` |
 | Settings pin | Covered by what ship sets: the `agy` path and version, the model id, the profile and settings hashes, the neutral working directory. Effort: the level carried in the pinned id, no separate setting. The user's Antigravity config (settings, MCP servers, plugins, and the hooks in `~/.gemini/config/hooks.json`, which run in every call) is a fixed input ship neither reads beyond this card nor changes |
-| Read-only tool allowlist | Headless only: the profile declares only `read_file` (agy adds the inert `manage_task`), the settings deny writes, commands, MCP and URLs, and the working directory lies outside every repository, so no repository `.agents/` or instruction file loads. In Orca the worker has full access; the fingerprints of `adapter-orca.md` are the protection |
+| Read-only tool allowlist | Headless only: the profile declares only `read_file` (agy adds the inert `manage_task`), the settings deny writes, commands, MCP and URLs, and the working directory lies outside every repository, so no repository `.agents/` or instruction file loads. In Orca the worker has full access; the fingerprints of `references/adapter-orca.md` are the protection |
 
-## Isolation
+## Requirements
+
+Requires `agy` installed and logged in, `jq` and `python3`. The commands are written for agy 1.5.12.
+Gemini chosen but not usable: name the blocker and stop. Never fall back to another reviewer, and never continue
+with fewer reviewers.
+
+## Preparation and pin
 
 Every headless agy call of the gate (the preparation queries, the login check, discovery and verification) goes
 through `agy_iso`. It runs the pinned `agy` from the neutral directory, with every `ORCA_*` and `ANTIGRAVITY_*`
@@ -33,8 +36,6 @@ agy_iso() ( D="$(cat "$SHIP_GATE/gemini-cwd")" && [ -n "$D" ] && cd "$D" || exit
   for v in $(env | sed -nE 's/^((ORCA|ANTIGRAVITY)_[A-Za-z0-9_]*)=.*/\1/p'); do unset "$v"; done
   AGY_CLI_DISABLE_AUTO_UPDATE=1; export AGY_CLI_DISABLE_AUTO_UPDATE; exec "$(cat "$SHIP_GATE/agy-path")" "$@" )
 ```
-
-## Preparation and pin
 
 Before the first discovery of each gate, in the environment the reviewer runs in, Orca included. `SHIP_GATE` is the
 absolute gate scratch from `gates.md`; set the variables in every shell call. `<skill-dir>` is the directory of the
@@ -50,7 +51,7 @@ copies is removed. Any other `gemini-cwd` is neither reused nor removed: the run
 `SUCCESS` and the fields it is read for (a model's `effort` may be absent).
 
 ```bash
-( SHIP_GATE="<absolute gate scratch path>"; P="<skill-dir>/scripts/agy-reviewer"
+( SHIP_GATE="<absolute gate scratch path>"; P="<skill-dir>/references/agents/antigravity/agy-reviewer"
 G="<the neutral directory gates.md records for this gate>"    # empty while gates.md records none
 N=""; SHIP_GEMINI_BASE=""    # after STATUS: MODEL QUESTION: the base the user chose; nothing else changes
 RM() { case "$1" in /?*) [ -e "$1" ] || [ -L "$1" ] || return 0 ;; esac
@@ -124,10 +125,10 @@ preparation block and "Gate end" fill `<the neutral directory gates.md records f
 `<the model id gates.md records for this gate>` from that record and launches only if `$SHIP_GATE/model` holds that
 id; otherwise it prints `BLOCKER: model pin …` and launches nothing.
 
-## Login check
+### Login check
 
 After `STATUS: READY`; it sends no repository material. In one shell call: the lines below, the isolation lines and
-the discovery command of "Headless call"; then the attempt check with `-` and `login` as its second and third
+the discovery command of "Calls"; then the attempt check with `-` and `login` as its second and third
 arguments, `"$HOME/.gemini/antigravity-cli"` in place of `"$(cat "$SHIP_GATE/agy-home")"`, and no full-read file.
 No round source hash and no promotion; `thread-id` and `last-review.txt` stay untouched.
 
@@ -144,11 +145,11 @@ printf '%s\n' "$HOME/.gemini/antigravity-cli" > "$SHIP_GATE/agy-home"
 
 A failed login, with the retries spent, is a CLI or login blocker: remove the neutral directory as "Gate end" says.
 
-## Headless call
+## Calls
 
 With the runtime's background mechanism, from any directory: `agy_iso` changes to the neutral directory itself.
 Each round has its own `R`, each attempt of a round its own `A`; a failed attempt's files stay, the retry is the
-next `A`. The prompt goes on stdin, so the argv rule of `gate.md` holds without an exception; `-p` is not used.
+next `A`. The prompt goes on stdin, so the argv rule of `references/gate.md` holds without an exception; `-p` is not used.
 
 Before every attempt, as its own call with the isolation lines first; either line printed means the attempt did not
 happen, tell the user:
@@ -196,7 +197,7 @@ else agy_iso --agent ship-reviewer --settings settings.json --disable-slash-comm
   < "$R-prompt.md" > "$A-events.jsonl" 2> "$A-stderr.txt"; echo $? > "$A-exit"; fi
 ```
 
-## Round source hash
+### Round source hash
 
 The hash of what the round's input files come from, in Orca too; not for the login check. Build it once per round,
 with `OP=build`, when the round's inputs are built: it writes `$R-source-sha256` and, in diff and snapshot mode,
@@ -220,13 +221,13 @@ core requires:
 
 - diff mode, working tree: `SRC() { git diff "$(cat "$SHIP_GATE/base-sha")" -- "<path 1>" "<path 2>"; }`
 - diff mode, end SHA: `SRC() { git diff "$(cat "$SHIP_GATE/base-sha")" "<end SHA>" -- "<path 1>" "<path 2>"; }`
-- snapshot mode, with the stable headers of `polish.md` and a deleted file against `/dev/null`, one `diff -u` and
+- snapshot mode, with the stable headers of `references/polish.md` and a deleted file against `/dev/null`, one `diff -u` and
   status test per snapshot, `|| return 1` after each test but the last:
   `SRC() { diff -u --label "a/<path>" --label "b/<path>" "<snapshot>" "<path>"; [ $? -le 1 ]; }`
 - file mode, with `S=/dev/null`, every original scope path in scope order:
   `SRC() { shasum -a 256 "<scope path 1>" "<scope path 2>"; }`
 
-## Attempt check
+## Acceptance
 
 After every headless attempt, from any directory. The second argument is `-` for discovery and
 `"$(cat "$SHIP_GATE/thread-id")"` for verification; the full-read files follow the prompt file, each quoted on its
@@ -369,7 +370,7 @@ transcript a whole read's result is `Showing lines 1-<N> of <N>` and the file's 
 `Created At:` / `Completed At:` lines, rows kept as is (a CRLF file's `\r`, tabs, a 30,000-byte line, an empty last
 row `<N>: `), and for a file without a final newline the line `(no newline at end of file)` after the last row; a cut
 one says `Partial read …`. A `read_file` with `StartLine`, `EndLine` or `ByteOffset` does not count. Exit 0: read
-`$A-review.txt`, pass the list check of "Prompts and input files", and check that it states no required-read blocker
+`$A-review.txt`, pass the list check of "Prompts", and check that it states no required-read blocker
 (one that does is a run that did not happen); then the round source hash check (`OP=check`). All hold — promote the
 attempt:
 
@@ -382,9 +383,9 @@ A failed attempt changes none of these files; it is a run that did not happen. T
 promotion chain has succeeded. If a copy fails, rerun the same copies from the attempt's files before anything else;
 until they succeed the attempt has not counted.
 
-## Prompts and input files
+## Prompts
 
-Controlled text from `prompts.md` with the `VERDICT` line, in both transports. The role lines, first in every
+Controlled text from `references/prompts.md` with the `VERDICT` line, in both transports. The role lines, first in every
 discovery:
 
 ```text
@@ -474,7 +475,7 @@ File mode: the same splitter runs on every scope file, with `"<file>" "$R-file-<
 the file's position in the scope list; one part means the file is read whole at its own path (delete that part),
 more parts stand in for it. In verification the splitter runs again on every scope file with the same rule.
 
-Substitutions in the `prompts.md` and `polish.md` frameworks, the only changes to their text:
+Substitutions in the `references/prompts.md` and `references/polish.md` frameworks, the only changes to their text:
 
 - file mode discovery: in `Review <path to the file or list of files>.` a split file keeps its original path,
   followed by `(in its parts listed under "Files to read")`;
@@ -492,9 +493,9 @@ Substitutions in the `prompts.md` and `polish.md` frameworks, the only changes t
 
 ## Orca
 
-Departures from the reviewer table of `adapter-orca.md`; everything else there applies, including its reviewer
+Departures from the reviewer table of `references/adapter-orca.md`; everything else there applies, including its reviewer
 line, the fingerprints before and after every round and ending the turn instead of polling. `ORCA` is the CLI that
-file resolves; `SHIP_GATE`, `R` and `A` as in "Headless call". The preparation and the login check run headless as
+file resolves; `SHIP_GATE`, `R` and `A` as in "Calls". The preparation and the login check run headless as
 above; the worker's binary is the one Orca launches, as for the Codex and Claude workers. There is no headless
 fallback: with the retries spent the gate is blocked.
 
@@ -521,19 +522,20 @@ else echo "EARLIER GEMINI TERMINAL NOT CLOSED"; fi
 ```
 
 - `BLOCKER: model pin …`: nothing was launched; tell the user.
-- `EARLIER GEMINI TERMINAL NOT CLOSED`: no new start; an uncertain close follows the recovery in `adapter-orca.md`.
+- `EARLIER GEMINI TERMINAL NOT CLOSED`: no new start; an uncertain close follows "The terminal-close proof" in
+  `references/adapter-orca.md`.
 - `RECEIPT: READY`: `worker-start` exited 0 with a `ready` receipt of the pinned model, and `gemini-terminal` and
-  `thread-id` were written. Then the tab rename of `adapter-orca.md`, with ` (gemini)` at the end of the title. No
+  `thread-id` were written. Then the tab rename of `references/adapter-orca.md`, with ` (gemini)` at the end of the title. No
   `--effort`: the id carries the level.
 - `RECEIPT: OTHER MODEL`: the worker is stopped at once, confirmed as "Stopping at the user's request" in
-  `adapter-orca.md` requires; not confirmed — tell the user. The attempt did not happen.
+  `references/adapter-orca.md` requires; not confirmed — tell the user. The attempt did not happen.
 - `RECEIPT: NOT STARTED`, a `ready` receipt with a non-zero exit (such as a failed keep-open) or a failed write
-  included: the receipt in `$A-receipt.json` and its dispatch go to "If the worker did not start" in `adapter-orca.md`.
+  included: the receipt in `$A-receipt.json` and its dispatch go to "If the worker did not start" in `references/adapter-orca.md`.
 - A start blocked at a trust prompt (a new worktree; the TUI may also remember a folder as trusted by itself): ask
   the user to accept it in that tab, release that dispatch as "If the worker did not start" requires, confirm the
   terminal is gone, and start again.
 
-Every Orca prompt, after the reviewer line of `adapter-orca.md`, adds:
+Every Orca prompt, after the reviewer line of `references/adapter-orca.md`, adds:
 
 ```text
 Before the REVIEWED list, put the line CONVERSATION: followed by the value of
@@ -543,7 +545,7 @@ $ANTIGRAVITY_CONVERSATION_ID, printed in your shell.
 Discovery also adds `After it, put the line AGY: followed by the output of agy --version, run in your shell.`
 
 Verification goes as a new task into the same terminal, never as `send`, which would reopen a closed worker without
-`--model`. Before every verification attempt, retries included, the boundary block of "Headless call" with `C` from
+`--model`. Before every verification attempt, retries included, the boundary block of "Calls" with `C` from
 `gemini-conversation`, and the block below in the same shell call: it checks the model pin first, then starts only if
 the boundary block wrote a fresh boundary in that call; otherwise it prints `BLOCKER: model pin …` or
 `BOUNDARY FAILED` and starts nothing. Measured: into a live terminal whose last dispatch has settled the call returns
@@ -575,7 +577,7 @@ fi
   guide.
 - `RECEIPT: NOT STARTED` (any other receipt, `outcome_unknown` included, and a `ready` one whose `thread-id` write
   failed): the receipt in `$A-receipt.json` and its dispatch stay under "If the worker did not start" in
-  `adapter-orca.md` until released or verified absent; the attempt did not happen. `send` is not used for a Gemini
+  `references/adapter-orca.md` until released or verified absent; the attempt did not happen. `send` is not used for a Gemini
   reviewer, so the last paragraph of that section does not apply.
 - No failure moves `thread-id` or touches the accepted dispatch.
 
@@ -584,7 +586,7 @@ The round's response comes only from a `worker_done` of the accepted dispatch (`
 before reading the transcript or saving the next boundary
 `ORCA terminal wait --terminal "$(cat "$SHIP_GATE/gemini-terminal")" --for tui-idle --timeout-ms 120000 --json` must
 be satisfied; not satisfied — wait once more, then tell the user; the round has no counted response until it is.
-Save that message's `body` (from `ORCA orchestration check --json`, as `adapter-orca.md` says) to `$A-body.txt`,
+Save that message's `body` (from `ORCA orchestration check --json`, as `references/adapter-orca.md` says) to `$A-body.txt`,
 then run the Orca response check. The second argument is `-` for discovery and
 `"$(cat "$SHIP_GATE/gemini-conversation")"` for verification; one line per failed condition, exit 0 only if all
 hold.
@@ -662,7 +664,7 @@ sys.exit(1 if fails else 0)
 PY
 ```
 
-Exit 0: read `$A-review.txt`, pass the list check of "Prompts and input files", and check that it states no
+Exit 0: read `$A-review.txt`, pass the list check of "Prompts", and check that it states no
 required-read blocker (one that does is a run that did not happen); then the round source hash check (`OP=check`).
 All hold — the Orca promotion; at a counted discovery the `AGY` line's version also goes into the pin. `thread-id`
 keeps Orca's dispatch id and moves only with a `ready` receipt.
@@ -678,7 +680,7 @@ attempt's files before anything else; until they succeed the attempt has not cou
 ## Gate end
 
 When the gate closes, is abandoned or the user stops it. In Orca, the terminal is closed with `ptyKilled` true or
-verified absent; an uncertain close follows the recovery in `adapter-orca.md`:
+verified absent; an uncertain close follows "The terminal-close proof" in `references/adapter-orca.md`:
 
 ```bash
 ORCA terminal close --terminal "$(cat "$SHIP_GATE/gemini-terminal")" --json \
@@ -699,6 +701,11 @@ case "$D" in */ship-gemini.????????) [ "$D" = "<the neutral directory gates.md r
   *) false ;; esac || echo "GEMINI-CWD NOT REMOVED: '$D'"
 ```
 
+## Access
+
+A Codex executor needs network access, the existing Antigravity login and writes under `~/.gemini/antigravity-cli/`
+for `agy`, granted per command by its runtime, as for `kimi`.
+
 ## Pitfalls
 
 - A resume without `--model` runs on the user's settings model, which may be any vendor's: every verification
@@ -711,5 +718,3 @@ case "$D" in */ship-gemini.????????) [ "$D" = "<the neutral directory gates.md r
 - agy 1.5.12 has no read-only directory listing, file search or text search tool: the headless reviewer reads only
   the paths it is given.
 - A default `-p` run writes files and runs commands; `--mode plan` and `--sandbox` are not read-only.
-- A Codex executor needs network access, the existing Antigravity login and writes under `~/.gemini/antigravity-cli/`
-  for `agy`, granted per command by its runtime, as for `kimi`.

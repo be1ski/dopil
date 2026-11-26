@@ -96,4 +96,4 @@ from `references/adapter-orca.md` is added to the rules below.
 - fixes in non-overlapping files — yes, in overlapping ones — no, only sequentially;
 - subagents on which the runtime imposes auto-accept of edits regardless of the session mode are not fit for
   fixes. Which mechanism in your runtime gives subagents with edit permission, and which
-  imposes auto-accept — is in the executor adapter.
+  imposes auto-accept — is in the executor card's **Tools**, otherwise in `references/executor.md`.

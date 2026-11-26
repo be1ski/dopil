@@ -13,10 +13,11 @@ absolute path to the skill. Do not rely on autoloading or on the executor having
 The source is context for the criteria, not part of the change under review. The block is mandatory on verify
 too; it does not widen the scope and does not permit a repeat sweep. The gate protocol, roles and exit conditions
 are set by ship; the engineering criteria by `pragmatic-engineering`, without copying the whole skill into this
-file. Proof of reading the baseline and of scope coverage is set by the adapter: `CONTEXT`/`REVIEWED` for modes
-with a controlled response text; for native Codex diff-review — an actual successful read via
-Read/command execution or the full text in the context of the actual review-child. The absence of a single
-text marker does not prove that no read happened; without available proof, do not count the run.
+file. Proof of reading the baseline and of scope coverage is set by the reviewer card: `CONTEXT`/`REVIEWED` for
+modes with a controlled response text; for a card's native diff review — what its **Acceptance** names, such as an
+actual successful file read or command execution, or the full text in the context of the run that actually reviews.
+The absence of a single text marker does not prove that no read happened; without available proof, do not count the
+run.
 In per-task loops also add this block before the task-review and re-review templates of
 subagent-driven-development: this applies to the task-review subagents as well, keeping their response format.
 
@@ -55,15 +56,15 @@ there is no need to repeat the polish gate after it without new polish.
 
 ## How to call the reviewer
 
-The commands are in the selected `references/adapter-reviewer-*.md`. Here is only what holds for
-any reviewer.
+Read `references/reviewer.md`, then the selected reviewer card, `references/agents/<folder>/reviewer.md`: the
+commands are there. Here is only what holds for any reviewer.
 
 **Branch on the form of the artifact, not on its name.** There is a git diff that can be described in prose
-(from a saved SHA to the working tree or a fixed end SHA) — the adapter's diff mode. There is no diff — a spec, a plan, a file outside the
+(from a saved SHA to the working tree or a fixed end SHA) — the reviewer card's diff mode. There is no diff — a spec, a plan, a file outside the
 repository, a file that has not changed — file mode. A one-off script and a config edit are split
 by the same sign.
 
-**The scope is passed by the mechanism the adapter declared.** In prose it is an instruction to the model, not
+**The scope is passed by the mechanism the reviewer card declared.** In prose it is an instruction to the model, not
 a flag: compliance is not guaranteed. One reconciliation for both cases: the paths in the findings must lie
 inside the change. If they do not — it is a run that did not happen: rerun with a more explicit scope
 description, up to two times, then escalate.
@@ -85,9 +86,9 @@ The session scratchpad, meanwhile, is ephemeral: an acceptance script that lived
 found in any session directory after a restart. A check that must survive until the end of the work goes into
 the work's artifact, into the plan or into the repository, not only into `.ship/`.
 
-**What counts as a clean discovery in diff mode is stated in the adapter's card.** Any finding
-in the selected adapter's format means an open gate. In file mode the last-line contract
-applies; the Claude adapter applies this contract to diff mode as well.
+**What counts as a clean discovery in diff mode is stated in the reviewer card.** Any finding
+in the selected reviewer card's format means an open gate. In file mode the last-line contract
+applies; a card whose **Prompts** and **Acceptance** carry this contract into diff mode applies it there as well.
 
 The discovery prompt for file mode, like the others, is in `references/prompts.md`.
 
@@ -96,5 +97,5 @@ The discovery prompt for file mode, like the others, is in `references/prompts.m
 The blocks and the full discovery frameworks for files, git diff and snapshots, for verification and the polish
 delta are in `references/prompts.md`. Assemble the suitable framework from the indicated blocks, substitute
 the values and pick the marked variants; do not retell the text of the blocks in your own words.
-**What counts as a clean run and what confirms reading is declared by the adapter**: the last-line contract
+**What counts as a clean run and what confirms reading is declared by the reviewer card**: the last-line contract
 and text markers do not work with every reviewer or in every mode.

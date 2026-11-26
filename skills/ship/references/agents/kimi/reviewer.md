@@ -1,24 +1,28 @@
-# Reviewer adapter: Kimi Code
+# Reviewer card: Kimi Code
 
 Read only when Kimi is chosen (`references/reviewer-choice.md`). The reviewer is the Kimi Code CLI: vendor Moonshot
-AI, Kimi family. Requires `kimi` set up and logged in, `jq` and `python3`. The commands are written for Kimi Code
-2.6.3. Kimi chosen but not usable: name the blocker and stop. Never fall back to another reviewer, and never continue
-with fewer reviewers.
+AI, Kimi family.
 
 ## Contract card
 
 | Capability | Covered by |
 |---|---|
 | Who the reviewer is | Kimi Code CLI, Moonshot AI, Kimi family; the pinned CLI path and version and a model alias whose provider has type `kimi` ("Preparation and pin"). Headless, every attempt's session log confirms the alias. Not fit for an executor of the Kimi family |
-| Discovery in prose over a scope | `kimi -p` headless, or in Orca a worker in a terminal ship creates. Controlled text from `prompts.md`; the scope in prose, a diff in input files |
+| Discovery in prose over a scope | `kimi -p` headless, or in Orca a worker in a terminal ship creates. Controlled text from `references/prompts.md`; the scope in prose, a diff in input files |
 | Verification in the same thread | Headless: `--session <thread-id>`, the Kimi session id. Orca: `send` to the latest dispatch, delivered as a follow-up into the same terminal and Kimi session |
-| Clean / findings / did not happen | The last-line contract. Headless an attempt counts only if the "Attempt check" passes; in Orca only a `worker_done` with `outcome: succeeded`. Exit code 0 alone proves nothing |
+| Clean / findings / did not happen | The last-line contract. Headless an attempt counts only if the check of "Acceptance" passes; in Orca only a `worker_done` with `outcome: succeeded`. Exit code 0 alone proves nothing |
 | File mode without git | Read, Grep and Glob read absolute paths; git is not needed |
 | Current state | File mode: the reviewer re-reads the file. Diff: every round the executor writes the current diff from the saved base into new input files |
 | Confirmation of reading | The `REVIEWED` and `CONTEXT` lists in every response, discovery and verification. Headless also a whole-file `Read` of the baseline and of the reviewed file or every input part in the events |
 | Long wait | Headless: the runtime's background mechanism (measured: a 941 s run completed). Orca: end the turn and wait for `worker_done` |
-| Settings pin | Covered by what ship sets: the CLI path and version, the alias, effort `max`, the profile (headless) and the empty skills directory. The user's Kimi config, hooks, MCP servers and plugins included, is a fixed input ship neither reads nor changes, as the Codex adapter treats `~/.codex/config.toml` |
-| Read-only tool allowlist | Headless only: the profile allows `Read`, `Grep` and `Glob` and no subagents. In Orca the worker has full access (`--auto`); the fingerprints of `adapter-orca.md` are the protection |
+| Settings pin | Covered by what ship sets: the CLI path and version, the alias, effort `max`, the profile (headless) and the empty skills directory. The user's Kimi config, hooks, MCP servers and plugins included, is a fixed input ship neither reads nor changes, as the Codex reviewer card treats `~/.codex/config.toml` |
+| Read-only tool allowlist | Headless only: the profile allows `Read`, `Grep` and `Glob` and no subagents. In Orca the worker has full access (`--auto`); the fingerprints of `references/adapter-orca.md` are the protection |
+
+## Requirements
+
+Requires `kimi` set up and logged in, `jq` and `python3`. The commands are written for Kimi Code 2.6.3. Kimi
+chosen but not usable: name the blocker and stop. Never fall back to another reviewer, and never continue with
+fewer reviewers.
 
 ## Preparation and pin
 
@@ -56,7 +60,7 @@ directory, removed afterwards, so that no project `AGENTS.md` is loaded:
 SHIP_GATE="<absolute gate scratch path>"; KH="$(cat "$SHIP_GATE/kimi-home")"; R="$SHIP_GATE/login"; A="$R"
 echo 'Reply with exactly: OK' > "$R-prompt.md"; rm -f "$A-exit" "$A-events.jsonl"
 if E="$(mktemp -d)"; then ( cd "$E" && KIMI_CODE_HOME="$KH" KIMI_MODEL_THINKING_EFFORT=max "$(cat "$SHIP_GATE/kimi-path")" \
-  -m "$(cat "$SHIP_GATE/model")" --agent-file "<skill-dir>/scripts/kimi-reviewer.md" --skills-dir "$SHIP_GATE/kimi-no-skills" \
+  -m "$(cat "$SHIP_GATE/model")" --agent-file "<skill-dir>/references/agents/kimi/kimi-reviewer.md" --skills-dir "$SHIP_GATE/kimi-no-skills" \
   --prompt="$(cat "$R-prompt.md")" --output-format stream-json > "$A-events.jsonl" 2> "$A-stderr.txt"; echo $? > "$A-exit" )
   rmdir "$E"; [ "$(cat "$A-exit")" = 0 ] \
   && jq -es 'map(select(.role == "assistant" and .content != null)) | last | .content == "OK"' "$A-events.jsonl"
@@ -69,7 +73,7 @@ model question.
 The pin (path, Kimi home, version, alias, `max`) goes to the ledger and to `gates.md` for this gate. It does not
 change inside the gate; the next gate resolves it again.
 
-## Headless call
+## Calls
 
 From the gate's working directory, with the runtime's background mechanism. Each round has its own `R`, each
 attempt of a round its own `A`; a failed attempt's files stay, the retry is the next `A`.
@@ -86,7 +90,7 @@ Discovery (`<skill-dir>` is the directory of the loaded skill):
 ```bash
 echo 0 > "$A-log-before"
 KIMI_CODE_HOME="$(cat "$SHIP_GATE/kimi-home")" KIMI_MODEL_THINKING_EFFORT=max "$(cat "$SHIP_GATE/kimi-path")" \
-  -m "$(cat "$SHIP_GATE/model")" --agent-file "<skill-dir>/scripts/kimi-reviewer.md" --skills-dir "$SHIP_GATE/kimi-no-skills" \
+  -m "$(cat "$SHIP_GATE/model")" --agent-file "<skill-dir>/references/agents/kimi/kimi-reviewer.md" --skills-dir "$SHIP_GATE/kimi-no-skills" \
   --prompt="$(cat "$R-prompt.md")" --output-format stream-json > "$A-events.jsonl" 2> "$A-stderr.txt"; echo $? > "$A-exit"
 ```
 
@@ -100,11 +104,11 @@ KIMI_CODE_HOME="$(cat "$SHIP_GATE/kimi-home")" KIMI_MODEL_THINKING_EFFORT=max "$
   --prompt="$(cat "$R-prompt.md")" --output-format stream-json > "$A-events.jsonl" 2> "$A-stderr.txt"; echo $? > "$A-exit"
 ```
 
-The Kimi exception to the argv rule of `gate.md`: `kimi -p` does not read stdin, so the prompt stays a file in the
+The Kimi exception to the argv rule of `references/gate.md`: `kimi -p` does not read stdin, so the prompt stays a file in the
 gate scratch and goes as one literal argument: trailing newlines are dropped, nothing else changes. If the launch
 fails because the argument is too long, stop the gate and tell the user.
 
-## Attempt check
+## Acceptance
 
 After every attempt, from any directory. The second argument is `-` for discovery and
 `"$(cat "$SHIP_GATE/thread-id")"` for verification; the full-read files follow the pinned Kimi home, each quoted
@@ -207,7 +211,7 @@ PY
 
 Measured: a partial page carries no visible status in `stream-json`, so equal content is the proof. A `Read` with
 `line_offset`, `column_offset` or `n_lines` does not count; `max_chars`, which Kimi adds itself, does. Exit 0: read
-`$A-review.txt` and check that `REVIEWED` and `CONTEXT` name what "Prompts and input files" requires. Both hold —
+`$A-review.txt` and check that `REVIEWED` and `CONTEXT` name what "Prompts" requires. Both hold —
 promote the attempt:
 
 ```bash
@@ -217,9 +221,9 @@ cp "$A-review.txt" "$R-review.txt" && cp "$A-review.txt" "$SHIP_GATE/last-review
 
 A failed attempt changes none of these files; it is a run that did not happen.
 
-## Prompts and input files
+## Prompts
 
-Controlled text from `prompts.md` with the `VERDICT` line, in both transports. The role lines, first in every
+Controlled text from `references/prompts.md` with the `VERDICT` line, in both transports. The role lines, first in every
 discovery:
 
 ```text
@@ -271,7 +275,7 @@ file-mode file whose rendering exceeds 20,000 characters is split the same way, 
 as the arguments, `<n>` the file's position in the scope list; in the prompt each part is headed by its original
 path and first line number, and the attempt check takes that file's parts in its place.
 
-Substitutions in the `prompts.md` and `polish.md` frameworks, the only changes to their text:
+Substitutions in the `references/prompts.md` and `references/polish.md` frameworks, the only changes to their text:
 
 - "Ignore everything under <gate scratch>." gains "except the input files named in this prompt";
 - a ready-made diff or "the diff below" becomes `The diff is in these files, in order: <absolute paths>; read
@@ -285,11 +289,11 @@ The "What you opened" block goes into every Kimi prompt, verification too, befor
 
 ## Orca
 
-Departures from the reviewer table of `adapter-orca.md`; everything else there applies, including its reviewer
+Departures from the reviewer table of `references/adapter-orca.md`; everything else there applies, including its reviewer
 line, the fingerprints before and after every round and ending the turn instead of polling. `ORCA` is the CLI that
 file resolves. `--agent kimi` is not used: the first prompt was not delivered, and `--model`/`--effort` are not
 supported for Kimi. Instead ship starts Kimi in its own terminal on the pinned path, Kimi home and alias
-(`SHIP_GATE`, `R` and `A` as in "Headless call"):
+(`SHIP_GATE`, `R` and `A` as in "Calls"):
 
 ```bash
 INNER="$(printf '%q ' KIMI_CODE_HOME="$(cat "$SHIP_GATE/kimi-home")" KIMI_MODEL_THINKING_EFFORT=max \
@@ -308,13 +312,14 @@ D="$(jq -er 'select(.result.state == "ready") | .result.dispatchId' "$A-receipt.
   && printf '%s\n' "$D" > "$SHIP_GATE/thread-id"
 ```
 
-- `EARLIER KIMI TERMINAL NOT CLOSED`: no new terminal; an uncertain close follows the recovery in `adapter-orca.md`.
+- `EARLIER KIMI TERMINAL NOT CLOSED`: no new terminal; an uncertain close follows "The terminal-close proof" in
+  `references/adapter-orca.md`.
 - The wait with `.result.wait.blockedReason` `agent-trust-workspace` (Kimi's "Trust this folder?" in a new
   worktree): ask the user to choose "Trust and continue" in that tab (Kimi remembers it for the folder), then wait
   again; the terminal stays. Any other unsatisfied wait: show the user the terminal's screen if it asks for a login
   or an update, close the terminal; the attempt did not happen.
 - Only a `worker-start` receipt with `.result.state` `ready` moves `thread-id`; any other follows "If the worker did
-  not start" in `adapter-orca.md`. There is no headless fallback; with the retries spent the gate is blocked.
+  not start" in `references/adapter-orca.md`. There is no headless fallback; with the retries spent the gate is blocked.
 - Verification: the send goes only on `SESSION: LIVE` (measured: a settled Kimi worker stays `live`), and only a
   `ready` receipt with `delivery: follow_up` into that terminal moves `thread-id`:
 
@@ -340,16 +345,25 @@ fi
 - `SESSION: GONE`: no send, the gate stays open, tell the user; a new session is never that thread's verification.
   `SESSION: INCONCLUSIVE`: repeat the block, then tell the user.
 - A `started_fresh` receipt started another worker: it is stopped, confirmed as "Stopping at the user's request" in
-  `adapter-orca.md` requires; not confirmed — tell the user. Any other receipt that is not `ready` follows "If the
-  worker did not start" in `adapter-orca.md`. Every receipt but the follow-up is an attempt that did not happen.
+  `references/adapter-orca.md` requires; not confirmed — tell the user. Any other receipt that is not `ready` follows "If the
+  worker did not start" in `references/adapter-orca.md`. Every receipt but the follow-up is an attempt that did not happen.
 - The round's response is the `worker_done` body of that dispatch with `outcome: succeeded`; only then it goes to
   `$R-review.txt` and `last-review.txt`. Anything else is an attempt that did not happen; the last counted
   response stays.
 - The pin is the launch command the block prints (`$INNER`), written to the ledger: one terminal serves every
   round. Read proof is the lists.
-- Gate end (closed, abandoned, user stop): `ORCA terminal close --terminal "$(cat "$SHIP_GATE/kimi-terminal")" --json`
-  with `.result.close.ptyKilled` true, or the handle verified absent by the `terminal list` check above. An uncertain
-  close follows the recovery in `adapter-orca.md`.
+
+## Gate end
+
+In Orca, at every gate end (closed, abandoned, user stop):
+`ORCA terminal close --terminal "$(cat "$SHIP_GATE/kimi-terminal")" --json` with `.result.close.ptyKilled` true, or the
+handle verified absent by the `terminal list` check of "Orca". An uncertain close follows "The terminal-close proof"
+in `references/adapter-orca.md`.
+
+## Access
+
+A Codex executor needs network access and writes under the pinned Kimi home for `kimi`, granted per command by
+its runtime, as for `claude`.
 
 ## Pitfalls
 
@@ -360,5 +374,3 @@ fi
   session log is the proof.
 - Orca may raise a false "Worker is waiting on a prompt" escalation while `worker-show` says `activity: working`:
   keep waiting.
-- A Codex executor needs network access and writes under the pinned Kimi home for `kimi`, granted per command by
-  its runtime, as for `claude`.

@@ -30,6 +30,8 @@ codex plugin add ship@ship
 codex plugin add superpowers@openai-curated-remote
 ```
 
+Codex picks up a new version of ship when you start a new session.
+
 Kimi Code
 
 Type in Kimi Code, then start a new session with /new
@@ -39,6 +41,8 @@ Type in Kimi Code, then start a new session with /new
 /plugins install https://github.com/be1ski/ship
 ```
 
+To update, run the same commands again, then start a new session with /new.
+
 Antigravity
 
 ```sh
@@ -46,7 +50,7 @@ agy plugin install https://github.com/obra/superpowers
 agy plugin install https://github.com/be1ski/ship
 ```
 
-To update in Kimi Code or Antigravity, run the same commands again (in Kimi Code, then /new)
+To update, run the same commands again, then start a new session.
 
 ### Use
 

@@ -29,16 +29,16 @@ A verification in which everything is closed fits into a single header. Otherwis
 reviewer's objection. A discovery without findings is also a single header.
 
 ```
-**Codex, code review: 2 findings. Fixing 1, rejecting 1**
+**<reviewer>, code review: 2 findings. Fixing 1, rejecting 1**
 
 | # | What is wrong | What I do |
 |---|---|---|
 | 1 | The report loses the first data row | reject: the header is skipped one line above, a test exists |
 | 2 | An empty CSV crashes the script instead of giving an empty report | early exit, test red first |
 
-Next: fix #2, then verification at codex.
+Next: fix #2, then verification at <reviewer>.
 
-**Codex, verification: closed 1 of 2**
+**<reviewer>, verification: closed 1 of 2**
 
 | # | What is wrong | What I do |
 |---|---|---|
@@ -46,7 +46,7 @@ Next: fix #2, then verification at codex.
 
 Next: the fix, second verification.
 
-**Codex, verification: all 2 closed.** The code gate is closed.
+**<reviewer>, verification: all 2 closed.** The code gate is closed.
 ```
 
 **The final report** brings the findings of all gates from the route registry, including the outcomes of the

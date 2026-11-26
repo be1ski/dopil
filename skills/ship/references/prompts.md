@@ -11,14 +11,14 @@ convergence. Only what is marked changes:
 - "variant" — take exactly one of those listed.
 
 The ending of the prompt and the way to confirm that the reviewer read the baseline and the scope depend on the
-reviewer's response mode. Which call runs in which mode is in the reviewer adapter's card.
+reviewer's response mode. Which call runs in which mode is in the reviewer card.
 
 | Response mode | End of discovery | Read confirmation |
 |---|---|---|
 | Controlled text: the reviewer answers in free text, the prompt sets the format | `VERDICT: NO FINDINGS` / `VERDICT: FINDINGS` as the last line | The "What you opened" block: the `REVIEWED` and `CONTEXT` lists in the response |
-| Native diff-review: the reviewer itself sets the response format | None. Clean or not — per the adapter's card | Actual successful reads in the run's events, per the adapter's card. The "What you opened" block is not included |
+| Native diff-review: the reviewer itself sets the response format | None. Clean or not — per the reviewer card | Actual successful reads in the run's events, per the reviewer card. The "What you opened" block is not included |
 
-No confirmation — the run did not happen. The absence of a text marker in a mode where the adapter does not
+No confirmation — the run did not happen. The absence of a text marker in a mode where the reviewer card does not
 promise one does not count as absence of reading, and the baseline is mandatory regardless of the mode.
 
 ## Block "Engineering baseline"
@@ -47,10 +47,10 @@ CONTENT` and `END ENGINEERING BASELINE CONTENT`, separately from the diff. In th
 `Read <absolute path …> in full and apply its engineering principles to this review.` with
 `Read the full ENGINEERING BASELINE CONTENT below, apply its engineering principles to this review,
 and list it as "CONTEXT: inline ENGINEERING BASELINE CONTENT".`
-Apply the adapter's rules for a failed run (for Claude, failed discovery — a new scratch,
-failed verify — the same thread) and the common retry limit; a short summary does not replace the dependency.
+Apply the card's rules for a failed run (its **Calls** and **Acceptance**, for example failed discovery — a new
+scratch, failed verify — the same thread) and the common retry limit; a short summary does not replace the dependency.
 The `CONTEXT: inline …` entry confirms the full text only in controlled text mode. What
-replaces it in native diff-review is stated in the adapter.
+replaces it in native diff-review is stated in the reviewer card.
 
 The executor checks that the baseline was read in discovery against the mode table above. In controlled text the
 reviewer lists the read path in `CONTEXT`, not in `REVIEWED`; for the full text —
@@ -133,7 +133,7 @@ reviewer's taste.
 Goes into the discovery prompts of **controlled text mode**, file and diff. Without it a clean
 run cannot be checked: there are no findings, and therefore no paths that show where the reviewer looked.
 In native diff-review the block is not included: the reviewer sets the response format there, and the lists do not
-make it into the response; reading is confirmed by the run's events per the adapter.
+make it into the response; reading is confirmed by the run's events per the reviewer card.
 
 ```
 Before the verdict, list what you opened, in two separate lists, and emit both even if you found
@@ -199,7 +199,7 @@ thread as the section from the verification framework.
 ## Discovery framework: file mode
 
 ```
-<role lines from the reviewer adapter>
+<role lines from the reviewer card>
 
 <block "Engineering baseline">
 
@@ -234,7 +234,7 @@ The code gate and the confirmation pass. The base is the **saved literal SHA** r
 was opened, not `HEAD`: the symbolic ref moves with the very first commit, and the diff from it becomes empty.
 
 ```
-<role lines from the reviewer adapter>
+<role lines from the reviewer card>
 
 <block "Engineering baseline">
 
@@ -263,7 +263,7 @@ VERDICT: FINDINGS>
 ```
 
 In native diff-review do not require a last line: the response comes in the reviewer's format, and what in it
-counts as clean is stated in the adapter's card.
+counts as clean is stated in the reviewer card.
 
 ## Discovery framework: polish delta
 
@@ -271,7 +271,7 @@ The same framework as for diff mode, with three differences: the base is the SHA
 the scope lines comes the paragraph about polish, and only the common tail is taken from the "What counts as a finding" block.
 
 ```
-<role lines from the reviewer adapter>
+<role lines from the reviewer card>
 
 <block "Engineering baseline">
 
@@ -315,7 +315,7 @@ For a file that was dirty **before** the work started: your own change cannot be
 prose, so the reviewer gets a ready-made delta, not the file. Always controlled text mode.
 
 ```
-<role lines from the reviewer adapter>
+<role lines from the reviewer card>
 
 <block "Engineering baseline">
 
@@ -391,7 +391,7 @@ it is the output of `git rev-parse HEAD` at the moment of opening, recorded lite
 and the reviewer will judge the fix by it.
 
 If the reviewer cannot compute the diff itself, the sentence with `run git diff` is replaced as stated
-in its adapter, and the current diff from the same SHA is attached to the prompt.
+in its card, and the current diff from the same SHA is attached to the prompt.
 
 In **file mode** only the sentences "You reviewed this change… run `git diff`" change,
 and the "Engineering baseline" block is kept: instead of these sentences — "Below are the findings from the

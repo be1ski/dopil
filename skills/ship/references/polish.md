@@ -12,7 +12,8 @@ affected path and record the mapping of snapshots to paths. The delta is compute
 3. comment cleanup (rule below);
 4. checks.
 
-How these two passes are covered in your runtime is in the executor adapter. If they are not there (a different
+How these two passes are covered in your runtime is in the executor card's **Tools**, otherwise in
+`references/executor.md`. If they are not there (a different
 runtime, the work runs in a subagent) — do not hang and do not look for workarounds: go through the diff by hand
 against the same criteria (reuse and simplification; separately "what can be deleted here") and say in the report
 that the pass was manual.

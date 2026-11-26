@@ -20,25 +20,29 @@ condition false: skip this section silently.
 
 Relative paths below are relative to the directory of the loaded `SKILL.md`.
 
-The executor is the current main agent, not an arbitrary CLI found in PATH:
+The executor is the current main agent, not an arbitrary CLI found in PATH.
 
-| Where ship was invoked | Executor | Default reviewer (for request forms that name it; first in the dialog) |
-|---|---|---|
-| Claude Code | `references/adapter-executor-claude-code.md` | Codex |
-| Codex | `references/adapter-executor-codex.md` | Claude Code |
-| Kimi Code | `references/executor.md` + `references/adapter-executor-kimi.md` | none |
-| Antigravity CLI | `references/executor.md` + `references/adapter-executor-antigravity.md` | none |
-| Any other agent | `references/executor.md` | none |
+Every agent ship knows has a folder `references/agents/<folder>/` with a descriptor, `agent.md`: a table of fields.
+Always **Name** (the runtime's name), **Executor card** and **Reviewer card** (each `executor.md`, `reviewer.md` or
+none); with an executor card also **Invocation** and **Default reviewer** (a reviewer's scratch key, or none); with a
+reviewer card also **Binary**, **Reviewer name**, **Reviewer vendor**, **Scratch key**, **Finding prefix** and
+**Order**. The roster is every descriptor: list them with the shell glob `references/agents/*/agent.md` from this
+skill's directory and read each. Blocked, named to the user and never treated as "any other agent": no descriptor at
+all, a missing field of its role, two descriptors with the same Name, Scratch key, Finding prefix or Order, or a card
+file a descriptor names that does not exist. A Default reviewer that is no Scratch key of the roster counts as none.
 
 Startup order, the same for every executor and kept after a compaction or a break:
 
-1. Identify the runtime and read its executor files from the table, `references/executor.md` before a card.
-2. Establish the executor's vendor and model family as the adapter or card says. The exact model id is needed only
-   where something is pinned to it (Orca workers, subagent models); without it those uses are unavailable, not
-   guessed. Unknown vendor: blocked.
-3. Read `references/reviewer-choice.md` and resolve the route's reviewer set by it.
+1. List and read the descriptors. The executor's folder is the one with an executor card whose **Name** is the
+   runtime ship was invoked in; none: "any other agent", `references/executor.md` alone, no default reviewer.
+2. Read `references/executor.md`, then the folder's executor card if there is one. Establish the executor's vendor
+   and model family as the card's **Identity** says; without a card, the agent's own statement, said so in the
+   announcement, as `references/executor.md` says. The exact model id is needed only where something is pinned to it
+   (Orca workers, subagent models); without it those uses are unavailable, not guessed. Unknown vendor: blocked.
+3. Read `references/reviewer-choice.md` and resolve the route's reviewer set over the roster by it.
 4. Each gate's set (its locked row on resume, otherwise the route-wide set with that stage's override) decides which
-   reviewer adapters are read, whether `references/parallel-review.md` applies, preflight and dispatch.
+   reviewer cards are read (`references/reviewer.md` first), whether `references/parallel-review.md` applies,
+   preflight and dispatch.
 5. The announcement, then the route. The routes and the protocol below are shared by every executor.
 
 A missing CLI or missing authorization of the external reviewer is an unfinished gate, not a reason to replace
@@ -72,8 +76,8 @@ There are two roles, and they are fundamentally different agents:
 
 - **executor** — the agent in which ship was invoked: writes the spec, the plan, the code and the polish, runs
   the triage of findings;
-- **reviewer** — an external agent that the executor calls through the mechanism declared by the adapter, and
-  that produces findings.
+- **reviewer** — an external agent that the executor calls through the mechanism declared by its reviewer card,
+  and that produces findings.
 
 **The invariant the whole skill rests on: the reviewer is not the executor.** A different model, a different
 vendor. An agent reviewing itself or its own model is blind exactly where the generator made the mistake.
@@ -83,8 +87,8 @@ nor by substituting a reviewer from the same model family.
 The invariant is checked in both directions: name your own family and vendor in the report next to the
 reviewer's. If you do not know who you are yourself, the gate is blocked just as with an unknown reviewer.
 
-Which agent takes which role is not fixed. The reviewer is plugged in through an **adapter**: a file in
-`references/` that describes how to call this reviewer and how to read its output.
+Which agent takes which role is not fixed. A reviewer is plugged in through its folder's **reviewer card**,
+`references/agents/<folder>/reviewer.md`, which describes how to call this reviewer and how to read its output.
 
 ## Route
 
@@ -111,7 +115,7 @@ without it verification will not happen.
 
 **Rounds 2+ — verification in the same thread.** A verification call on the same id with a response to every
 row of the list. The reviewer keeps its own findings in context, re-reads the current state or
-receives an updated delta from the saved base per the adapter's rules, and answers one
+receives an updated delta from the saved base per the reviewer card's rules, and answers one
 line per finding: RESOLVED / NOT RESOLVED / REGRESSED. It may raise a new finding **only**
 if it is a defect introduced by a response, that is, one that lives in a line changed after its review.
 
@@ -121,7 +125,7 @@ same state is added to this (the "Checks" section, `references/checks.md`); the 
 
 **A run that did not happen is not a round, and it does not close the gate.** An error, a timeout, empty
 output, a killed broker — rerun, up to two times, then escalate. Do not treat the exit code as a signal until
-the adapter has proven otherwise: with many reviewers the exit code is the same with findings and without them.
+the reviewer card has proven otherwise: with many reviewers the exit code is the same with findings and without them.
 Parse only the content of the output.
 
 **A clean verdict over an empty scope is not a clean gate.** Before counting zero findings,
@@ -131,13 +135,15 @@ committed tree or someone else's worktree give "clean" on zero content. A file g
 plan, file as is) has no diff at all: check that every path named in the prompt
 exists and is non-empty. A snapshot delta is checked by a non-empty diff, including deletion: the absence of the
 current file does not by itself make such a scope empty. Confirm reading and scope coverage in the way of the
-selected adapter, not by the presence of an arbitrary text marker.
+selected reviewer card, not by the presence of an arbitrary text marker.
 
-**After a context compaction or a break**, before continuing: re-read this file, the executor
-adapter or card, `references/executor.md` where it applies, `references/reviewer-choice.md` and the current gate's
-reviewers' adapters, `references/ledger.md`, the route registry `gates.md`, the ledger
-and saved state of every gate the registry lists as open (`ledger.md`, `thread-id`, `base-sha` or
-snapshots), and the reference file of the current phase from the index below.
+**After a context compaction or a break**, before continuing: re-read this file, the descriptors,
+`references/executor.md` and the executor card, `references/reviewer-choice.md`, the route registry `gates.md`, then
+`references/reviewer.md` and the current gate's reviewer cards (the keys of its locked row when its first discovery
+was dispatched, otherwise the route-wide `Reviewers:` set with that stage's override, as
+`references/reviewer-choice.md` says), `references/ledger.md`, the ledger and saved state of every gate the registry
+lists as open (`ledger.md`, `thread-id`, `base-sha` or snapshots), and the reference file of the current phase from
+the index below.
 
 <!-- phase-index:start -->
 ## Phase index
@@ -147,8 +153,8 @@ Read the listed file in full at the start of the phase, and again after a contex
 | Before | Read |
 |---|---|
 | The first step of any route: preflight, route details, spec and plan handling | `references/route.md`, `references/ledger.md`, `references/checks.md` |
-| Writing or checking an adapter | `references/contracts.md` |
-| Opening any gate, calling the reviewer | `references/gate.md`, `references/ledger.md`, `references/prompts.md` |
+| Connecting an agent or changing an agent folder | `references/contracts.md` |
+| Opening any gate, calling the reviewer | `references/gate.md`, `references/reviewer.md`, `references/ledger.md`, `references/prompts.md` |
 | Handling a round's findings, parallel fixes | `references/triage.md` |
 | Handing a state to a gate, closing a code or config gate | `references/checks.md` |
 | Polish after the code gate | `references/polish.md` |
@@ -197,5 +203,5 @@ Merge, PR and branch deletion are a separate decision: the branch-finishing skil
 | "The reviewer found six, all valid, off to fix them" | The user has not seen any of the six. First the round message, then the edits |
 | "The review crashed, but before that it was clean" | A run that did not happen is not a round. Rerun |
 | "Exit code 0, so it passed" | 0 comes with findings too. Parse the output |
-| "There is no reviewer, I'll review it myself" | Reviewer = not the executor. No adapter — say so and stop |
+| "There is no reviewer, I'll review it myself" | Reviewer = not the executor. No reviewer card — say so and stop |
 | "It's late already, I'll finish it tomorrow" | An unclosed gate is unfinished work. Report it as such |

@@ -2,18 +2,18 @@
 
 ## Preflight
 
-After choosing the route, before its first step: read the selected adapters and the required skills,
-check reviewer availability per the adapter, determine the scope, the checks and the route's shared scratch
+After choosing the route, before its first step: read the chosen reviewer cards and the required skills,
+check each reviewer's availability per its card, determine the scope, the checks and the route's shared scratch
 directory. A missing dependency or an unavailable launch mechanism is a
 concrete blocker; preflight does not change permissions and does not require re-approval of work already permitted.
 
 **Utilities.** Run `command -v git python3 jq`. For each one missing, name it and stop; do not
 install anything.
 
-**Route skills.** Check that every route skill named in the executor's full adapter, or else in
-`references/executor.md` (there both `subagent-driven-development` and `executing-plans`), is present in the
-session's skill catalog. If one is absent, name it, give the install
-command from the adapter or card (none there: as `references/executor.md` says), and stop.
+**Route skills.** Check that every route skill named in the executor card's **Route skills** where it overrides the
+row, otherwise `references/executor.md`'s (there both `subagent-driven-development` and `executing-plans`), is
+present in the session's skill catalog. If one is absent, name it, give the install
+command from the executor card (none there: as `references/executor.md` says), and stop.
 
 ## Route details
 
