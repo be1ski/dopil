@@ -1,6 +1,27 @@
 Cross-vendor review for Claude Code, Codex, Kimi Code and Antigravity
 
-Your agent writes and fixes. The other vendor only reviews, at every step, until clean. Code gates also run the project's checks.
+The agent running dopil writes and fixes; an agent from another vendor only reviews. In Claude Code, with Codex as the reviewer:
+
+```text
+/dopil add a --dry-run flag to scripts/deploy.sh with codex
+```
+
+Claude Code makes the change and runs your project's checks; Codex returns one list of findings. You see what Claude Code fixes and what it rejects with proof, and Codex rechecks that list in the same thread until every finding is closed.
+
+### Use
+
+| Agent | Example request |
+| --- | --- |
+| Claude Code | `/dopil add CSV headers with codex` |
+| Codex | `$dopil add CSV headers with claude` |
+| Kimi Code | `/skill:dopil:dopil add CSV headers with gemini` |
+| Antigravity | `/dopil:dopil add CSV headers with kimi` |
+
+Any installed, signed-in agent from another vendor can review, with no plugin; `gemini` is Antigravity. Name several, as in `with codex and gemini` in Claude Code, and they review in parallel. Name none, and dopil uses the only one available or asks.
+
+A feature goes spec → plan → code → polish. The reviewed spec waits for your approval, then your agent implements the plan, tests first, in a git worktree. A one-off, such as a script or a single-file fix, goes code → polish in your current tree.
+
+Scope and taste decisions and stalled disputes come to you. The final table lists every finding and its outcome. Dopil never merges or pushes.
 
 ### Install
 
@@ -49,24 +70,13 @@ agy plugin install https://github.com/be1ski/dopil
 
 To update, run the same command again, then start a new session.
 
-### Use
-
-```text
-/dopil add a --dry-run flag to scripts/deploy.sh   # Claude Code
-$dopil add CSV export to the reports page          # Codex
-/skill:dopil:dopil fix the flaky login test        # Kimi Code
-/dopil:dopil add pagination to the users API       # Antigravity
-```
-
-Dopil asks which of your other agents review, or uses the only one you have; name them in the request to skip the question
-
-Feature: spec → plan → code → polish. One-off: code → polish.
-
-Features run in a git worktree. Dopil never merges or pushes.
-
 ### Moving from ship
 
-Close every ship session, then paste into each agent that has ship:
+Dopil used to be called ship. Close every ship session.
+
+In Kimi Code, install dopil as Install says before you paste the line, and once the agent is done type /plugins, select ship, press D and choose Remove plugin.
+
+Then paste into each agent that has ship:
 
 ```
 Move from ship to dopil: follow https://github.com/be1ski/dopil#moving-from-ship
@@ -87,10 +97,6 @@ Codex
 codex plugin remove ship@ship
 codex plugin marketplace remove ship
 ```
-
-Kimi Code
-
-Install dopil as Install says before you paste the line, and once the agent is done type /plugins, select ship, press D and choose Remove plugin
 
 Antigravity
 
