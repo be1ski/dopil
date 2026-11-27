@@ -212,9 +212,20 @@ class RunnerTests(unittest.TestCase):
         self.assertEqual(self.prompt.read_text(), "Review file.py.")
 
     def test_verification_refuses_changed_cwd(self):
+        # Verify resumes a released dopil-claude-review-v1 state and refuses a changed cwd or another runner's state.
         self.assertEqual(self.invoke(), 0, self.errors)
-        self.cwd = self.root
+        state = self.state()
+        state["owner"] = "dopil-claude-review-v1"
+        (self.scratch / "reviewer.json").write_text(json.dumps(state))
+        self.assertEqual(self.invoke("verify"), 0, self.errors)
+        pinned, self.cwd = self.cwd, self.root
         self.assertNotEqual(self.invoke("verify"), 0)
+        self.assertEqual(self.calls, [])
+        self.cwd = pinned
+        state["owner"] = "another-runner-v1"
+        (self.scratch / "reviewer.json").write_text(json.dumps(state))
+        self.assertNotEqual(self.invoke("verify"), 0)
+        self.assertIn("this runner's state", self.errors)
         self.assertEqual(self.calls, [])
 
     def test_discovery_rejects_wrong_actual_model(self):

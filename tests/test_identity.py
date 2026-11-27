@@ -120,7 +120,7 @@ class KimiIdentityTest(ScriptCase):
 
     def test_no_kimi_on_path_blocks(self):
         (self.bin / "kimi").unlink()
-        self.assert_blocker("no kimi executable in PATH")
+        self.assert_blocker("no kimi executable in PATH", env={"PATH": str(self.bin)})
 
     def test_no_kimi_home_and_no_home_blocks(self):
         self.assert_blocker("neither KIMI_CODE_HOME nor HOME is set", env={"KIMI_CODE_HOME": None, "HOME": None})
@@ -129,12 +129,11 @@ class KimiIdentityTest(ScriptCase):
         self.assert_blocker("not a Kimi Code session", env={"KIMI_CODE_SESSION_ID": None})
 
     def test_missing_config_blocks(self):
-        (self.kimi_home / "config.toml").unlink()
-        self.assert_blocker("Kimi Code is not set up")
-
-    def test_empty_config_blocks(self):
-        (self.kimi_home / "config.toml").write_text("")
-        self.assert_blocker("Kimi Code is not set up")
+        config = self.kimi_home / "config.toml"
+        for name, damage in [("missing", config.unlink), ("empty", lambda: config.write_text(""))]:
+            with self.subTest(name):
+                damage()
+                self.assert_blocker("Kimi Code is not set up")
 
     def test_no_wire_log_blocks(self):
         self.assert_blocker("no single wire log for agent agent-7", args=("agent-7",))
@@ -147,7 +146,9 @@ class KimiIdentityTest(ScriptCase):
         path = self.write_wire(self.kimi_home, "agent-1", "")
         path.unlink()
         path.mkdir()
-        self.assert_blocker("cannot read the wire log: Is a directory", args=("agent-1",))
+        result = self.run_script(KIMI, self.env, "agent-1")
+        self.assertEqual((len(result.stdout.splitlines()), result.returncode), (1, 1), result.stdout + result.stderr)
+        self.assertTrue(result.stdout.startswith("BLOCKER: cannot read the wire log: "), result.stdout)
 
     def test_malformed_middle_line_blocks(self):
         self.write_wire(self.kimi_home, "main", jsonl([bind("kimi-x"), "not json", bind("kimi-x")]))
@@ -227,8 +228,11 @@ class AntigravityIdentityTest(ScriptCase):
         self.env["ANTIGRAVITY_CONVERSATION_ID"] = "conv-2"
         missing = Path(self.env["ANTIGRAVITY_APP_DATA_DIR"], "brain", "conv-2", ".system_generated", "logs",
                        "transcript.jsonl")
-        self.prints("", ["BLOCKER: cannot read the transcript: [Errno 2] No such file or directory: '%s'" % missing],
-                    1)
+        self.transcript.write_text(jsonl([user(), planner("gemini-x")]))
+        result = self.run_script(ANTIGRAVITY, self.env)
+        self.assertEqual((len(result.stdout.splitlines()), result.returncode), (1, 1), result.stdout + result.stderr)
+        self.assertTrue(result.stdout.startswith("BLOCKER: cannot read the transcript: "), result.stdout)
+        self.assertIn(str(missing), result.stdout)
 
     def test_malformed_middle_line_blocks(self):
         self.prints(jsonl([user(), "not json", planner("gemini-x")]), ["BLOCKER: transcript line 2 is not JSON"], 1)

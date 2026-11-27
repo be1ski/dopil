@@ -759,41 +759,6 @@ Request: T1
 Executor: Antigravity on a Gemini model on `-bad-identity` · Reviewers: none · outside Orca.
 Request: T1
 
-## Previous case ids
-
-The previous route's sandbox matrix, by id, and where each case lives now.
-
-| Previous | Now |
-|---|---|
-| A1 | `A-claude-one` |
-| A2 | `A-claude-all` |
-| A3 | `A-codex-one` |
-| A4 | `A-codex-all` |
-| A5 | `A-kimi-one` |
-| A6 | `A-kimi-all` |
-| A7 | `A-agy-gemini-one` |
-| A8 | `A-agy-gemini-all` |
-| A9 | `A-agy-other-one`, `I1-agy-other` |
-| A10 | `A-agy-other-all` |
-| B1 | `B-claude` |
-| B2 | `B-codex` |
-| C1 | `C-claude-one` |
-| C2 | `C-claude-several` |
-| C3 | `C-codex-one` |
-| C4 | `C-codex-several` |
-| D1 | `D-line` |
-| D2 | `D-legacy` |
-| E1 | `E-claude-one-available` |
-| E2 | `E-claude-cancel` |
-| E3 | `E-claude-numbered` |
-| E4 | `E-claude-all-except` |
-| E5 | `E-kimi-companion` |
-| E6 | `E-agy-companion` |
-| E7 | `E-claude-none` |
-| F1 | `F-kimi` |
-| F2 | `F-agy` |
-| G1 | not instantiated: no runtime without an executor card is installed, so `references/executor.md` alone stays unverified |
-
 ## Skill files and their cases
 
 For reruns after a change: a changed file reruns the instances of its row, selected by their first line. Paths are

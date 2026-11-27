@@ -1,16 +1,14 @@
 #!/usr/bin/env bash
-# T1: validate the plugin, install it into an isolated Claude Code profile and assert it loads.
+# Validate the plugin, install it into an isolated Claude Code profile and assert it loads.
 # Usage: bash tests/smoke_claude.sh [<plugin repo dir>]   (default: current directory)
-# Needs network and git access to GitHub. The temporary profile is left in place.
+# Needs network and git access to GitHub. The temporary profile is removed on exit.
 set -euo pipefail
 
 fail() { echo "smoke_claude: $*" >&2; exit 1; }
 
 REPO="$(cd "${1:-.}" && pwd)"
 
-# Options review_claude.py passes: an upstream rename must fail here, not in a user's review.
-# `claude --help` exits 0 for unknown options, so the help text itself is matched: the option
-# must open an option line, alone or after a short alias, so a mention in prose does not count.
+# Every option review_claude.py passes still opens an option line of `claude --help`.
 HELP="$(claude --help)"
 for flag in -p --safe-mode --tools --allowedTools --permission-mode --disable-slash-commands \
             --output-format --verbose --model --effort --session-id --resume; do
@@ -18,10 +16,10 @@ for flag in -p --safe-mode --tools --allowedTools --permission-mode --disable-sl
     || fail "claude --help no longer lists $flag"
 done
 H="$(mktemp -d)"
+trap 'rm -rf "$H"' EXIT
 export CLAUDE_CONFIG_DIR="$H"
 
-# Not --strict: the manifests omit `version` on purpose (every commit is an update), so the
-# "No version specified" warning is the one warning tolerated; errors fail via the exit code.
+# The plugin validates with no error and no warning but "No version specified".
 VALIDATE="$(claude plugin validate "$REPO" --json)" || { printf '%s\n' "$VALIDATE"; fail "claude plugin validate reported errors"; }
 printf '%s' "$VALIDATE" \
   | jq -e '[.manifest, (.contents // [])[]] | map(.warnings[]) | all(.message | startswith("No version specified"))' \
@@ -43,24 +41,13 @@ if [ -z "$ROOT" ]; then
 fi
 [ -n "$ROOT" ] && [ -d "$ROOT" ] || fail "no plugin root for dopil@dopil"
 
-for skill in dopil pragmatic-engineering; do
-  [ -f "$ROOT/skills/$skill/SKILL.md" ] || fail "missing skills/$skill/SKILL.md under $ROOT"
-done
-
-# The nested agent folders, expected from the source tree: every descriptor, every card it names (backticked or
-# not, none skipped) and both identity scripts.
-for src in "$REPO"/skills/dopil/references/agents/*/agent.md; do
-  rel="${src#"$REPO"/}"
+# Every file git tracks under skills/ is in the installed copy.
+env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_OBJECT_DIRECTORY -u GIT_COMMON_DIR \
+  git -C "$REPO" ls-files -z skills > "$H/tracked"
+[ -s "$H/tracked" ] || fail "git ls-files lists no file under skills/ in $REPO"
+while IFS= read -r -d '' rel; do
   [ -f "$ROOT/$rel" ] || fail "missing $rel under $ROOT"
-  for card in $(sed -nE 's/^\|[[:space:]]*(Executor|Reviewer) card[[:space:]]*\|[[:space:]]*`?([^`|[:space:]]+)`?[[:space:]]*\|[[:space:]]*$/\2/p' "$src"); do
-    [ "$card" = none ] && continue
-    [ -f "$ROOT/${rel%agent.md}$card" ] || fail "missing ${rel%agent.md}$card under $ROOT"
-  done
-done
-for folder in kimi antigravity; do
-  [ -f "$ROOT/skills/dopil/references/agents/$folder/identity.py" ] \
-    || fail "missing skills/dopil/references/agents/$folder/identity.py under $ROOT"
-done
+done < "$H/tracked"
 
 # Load state: `enabled` and `errors` as named by `claude plugin list --json` in Claude Code 2.1.
 printf '%s\n' "$ENTRY"

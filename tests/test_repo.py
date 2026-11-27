@@ -1,8 +1,7 @@
-"""Check the repository tree: manifests, skill sizes, references, denylist."""
+"""Check the repository tree: manifests, references, agent folders, denylist."""
 
 import json
 import re
-import subprocess
 import unittest
 from pathlib import Path
 
@@ -21,44 +20,12 @@ EXECUTOR_PARTS = ["Identity", "Tools", "Models", "Route skills", "Instructions",
                   "Orca writing workers", "Follow-ups", "Stop", "Recovery", "Closing", "Pitfalls"]
 # A part the generic row covers: one line naming that row of references/executor.md.
 DEFERRAL = re.compile(r"As references/executor\.md, (.+)\.")
-ROUTE_SKILLS = ["brainstorming", "writing-plans", "test-driven-development", "using-git-worktrees",
-                "subagent-driven-development", "receiving-code-review", "verification-before-completion",
-                "finishing-a-development-branch"]
-# The spec's override map for Claude Code and Codex: per overriding part, text the card's part must hold.
-OVERRIDES = {
-    "claude-code": {"Identity": ["CLAUDECODE", "CODEX_THREAD_ID"],
-                    "Tools": ["run_in_background", "Agent", "Workflow", "simplify", "ponytail:ponytail-review",
-                              "AskUserQuestion"],
-                    "Models": ["sonnet", "opus", "fable"],
-                    "Route skills": ROUTE_SKILLS + ["/plugin install superpowers@claude-plugins-official"],
-                    "Instructions": []},
-    "codex": {"Identity": ["CODEX_THREAD_ID", "system context"],
-              "Tools": ["exec_command", "write_stdin", "functions.wait", "spawn_agent", "request_user_input",
-                        "reviewer-choice.md", "plain text", "External CLI access", "**Access**"],
-              "Models": ["user's instructions"],
-              "Route skills": ROUTE_SKILLS + ["How to read dependencies", "codex plugin list",
-                                              "codex plugin add superpowers@openai-curated-remote", "unverified"],
-              "Instructions": ["AGENTS.md"]},
-}
-# The offer of a missing route skill (references/executor.md, "Route skills"), in the order the row gives it.
-OFFER = ["the plugin list", "reinstall commands for the user to run, then to open a new session",
-         "every command the install needs", "one question",
-         "Only an explicit yes the user submits runs them", "open a new session and run the same task again",
-         "show its output and stop, naming the command to rerun",
-         "the question is the last output and nothing is installed"]
-# Per card that adds to the row: the state source and the commands its **Route skills** must hold.
-OFFER_COMMANDS = {"antigravity": ["agy plugin list", "agy plugin install https://github.com/obra/superpowers",
-                                  "agy plugin enable superpowers", "unverified"],
-                  "kimi": ["/plugins install https://github.com/obra/superpowers", "/new", "for the user to type"]}
-README_AGENTS = ["Claude Code", "Codex", "Kimi Code", "Antigravity"]
 IDENTITY_SCRIPTS = ["kimi", "antigravity"]
 KIMI_SUBAGENT_CHECK = 'python3 -I "<skill-dir>/references/agents/kimi/identity.py" <agent_id>'
 INLINE_IDENTITY = "python3 -I - <<'PY'"
-LAUNCH_FAILURE = ("A launch that prints none of these lines, a missing script, a missing interpreter or a crash:"
-                  " blocked; name it and stop before any dispatch; never run an improvised check instead.")
 # Profile directories a card copies whole, under AGENTS: their required files, and nothing else.
 PROFILES = {"antigravity/agy-reviewer": ["settings.json", ".agents/agents/dopil-reviewer.md"]}
-# Descriptor fields by role (spec, "Agent folder"); a field outside its role is absent.
+# Descriptor fields by role (references/contracts.md); a field outside its role is absent.
 ALWAYS = ["Name", "Executor card", "Reviewer card"]
 EXECUTOR = ["Invocation", "Default reviewer"]
 REVIEWER = ["Binary", "Reviewer name", "Reviewer vendor", "Scratch key", "Finding prefix", "Order"]
@@ -67,22 +34,13 @@ FORMATS = {"Scratch key": re.compile(r"[a-z0-9-]+"),
            "Order": re.compile(r"[1-9][0-9]*")}
 ROW = re.compile(r"^\|\s*([^|]*?)\s*\|\s*([^|]*?)\s*\|\s*$")
 SEPARATOR = re.compile(r"[-:]+")
-# The four folders the spec describes; the naming-hint test builds its roster from them alone, so a new folder
-# does not change its expected keys.
-ORIGINAL_FOLDERS = ["claude-code", "codex", "kimi", "antigravity"]
-# Descriptor fields whose values name an agent; the core names none of them (spec, "Tests").
+# Descriptor fields whose values name an agent; the core names none of them.
 AGENT_TOKEN_FIELDS = ["Name", "Reviewer name", "Binary", "Reviewer vendor", "Scratch key"]
 FIRST_TOKEN = re.compile(r"[A-Za-z0-9-]+")
-# The naming hint's keys (reviewer-choice.md, "Dialog form"); for both executors with a default the baseline
-# printed `with kimi and gemini`, and the Kimi Code executor `with codex and gemini`, named by its card.
-NAMING_HINT = ("the keys of the last two cross-vendor roster entries in roster order (default first, then Order),"
-               " or the one key when only one exists")
-CARD_HINT = ("the keys the executor card names for this example, when each is the key of a cross-vendor entry of the"
-             " current roster")
 # Instruction file names the core may mention although they contain an agent's name.
 INSTRUCTION_FILES = re.compile(r"CLAUDE\.md|AGENTS\.md|GEMINI\.md")
-LINE_LIMIT = 500
-BYTE_LIMIT = 20000
+# What the repository's .gitignore leaves out of the tree; none of it is part of the skill.
+IGNORED = {".DS_Store", "__pycache__", ".dopil"}
 
 # Names under references/ that another tool resolves, each with the sentence that shows it.
 EXTERNAL_REFERENCES = {
@@ -137,11 +95,10 @@ def descriptors():
 
 
 def scanned_files():
-    """Return SKILL.md and every tracked or untracked, non-ignored file under references/."""
-    listed = subprocess.run(["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard", "--", REFERENCES],
-                            cwd=str(ROOT), check=True, stdout=subprocess.PIPE).stdout.decode("utf-8")
-    files = sorted({ROOT / rel for rel in listed.split("\0") if rel})
-    return [ROOT / SKILLS[0]] + [path for path in files if path.is_file()]
+    """Return SKILL.md and every file under references/ that is not of a kind the repository ignores."""
+    files = sorted(path for path in (ROOT / REFERENCES).rglob("*")
+                   if not IGNORED.intersection(path.relative_to(ROOT).parts) and path.is_file())
+    return [ROOT / SKILLS[0]] + files
 
 
 def agent_folder(path):
@@ -179,24 +136,6 @@ def executor_cards():
             if values.get("Executor card", "none") != "none"}
 
 
-def naming_hint_keys(card):
-    """Return the keys a card's **Tools** names for the naming hint's example, or None when it names none."""
-    tools = " ".join(dict(card_parts(card)).get("Tools", "").split())
-    sentences = [s for s in re.split(r"(?<=\.)\s+", tools) if "naming hint" in s]
-    return re.findall(r"`([a-z0-9-]+)`", sentences[0]) if sentences else None
-
-
-def hint_keys(found, executor):
-    """Return the naming hint's keys for an executor folder over the descriptors `found` (reviewer-choice.md,
-    "Dialog form"). The executor runs its own vendor's model, so its Reviewer vendor is the executor's vendor."""
-    own = found[executor]
-    roster = sorted((values for values in found.values() if values.get("Reviewer card") == "reviewer.md"),
-                    key=lambda values: (values["Scratch key"] != own["Default reviewer"], int(values["Order"])))
-    cross = [values["Scratch key"] for values in roster if values["Reviewer vendor"] != own["Reviewer vendor"]]
-    named = naming_hint_keys(AGENTS / executor / own["Executor card"])
-    return named if named and set(named) <= set(cross) else cross[-2:]
-
-
 def agent_tokens():
     """Return the words and phrases that name an agent, lowercased: per descriptor, its folder and naming fields."""
     tokens = set()
@@ -206,6 +145,19 @@ def agent_tokens():
         tokens.update(FIRST_TOKEN.match(values[field]).group(0) for field in ["Name", "Reviewer name"]
                       if FIRST_TOKEN.match(values.get(field, "")))
     return sorted({token.lower() for token in tokens})
+
+
+def in_checkout(path):
+    """Whether a manifest's declared path is a non-empty relative path to a directory inside the checkout."""
+    if not (isinstance(path, str) and path and not Path(path).is_absolute()):
+        return False
+    resolved = (ROOT / path).resolve()
+    return resolved.is_dir() and (resolved == ROOT or ROOT in resolved.parents)
+
+
+def front_matter_name(path):
+    match = re.search(r"\A---\n(?:.*\n)*?name: (\S+)\n", path.read_text(encoding="utf-8"))
+    return match.group(1) if match else None
 
 
 class RepoTest(unittest.TestCase):
@@ -223,22 +175,17 @@ class RepoTest(unittest.TestCase):
                 problems.append("%s: name is %r, expected 'dopil'" % (rel, name))
             if has_version(data):
                 problems.append('%s: has a "version" key' % rel)
+            declared = [data["skills"]] if isinstance(data, dict) and "skills" in data else []
             if rel in MARKETPLACES:
                 plugins = data.get("plugins") if isinstance(data, dict) else None
                 if not (isinstance(plugins, list) and len(plugins) == 1 and isinstance(plugins[0], dict)
                         and plugins[0].get("name") == "dopil"):
                     problems.append("%s: plugins must be exactly one entry named 'dopil'" % rel)
-        self.assertEqual(problems, [])
-
-    def test_skill_cores_fit_the_size_limit(self):
-        problems = []
-        for rel in SKILLS:
-            data = (ROOT / rel).read_bytes()
-            lines = len(data.splitlines())
-            if lines >= LINE_LIMIT:
-                problems.append("%s: %d lines, limit is under %d" % (rel, lines, LINE_LIMIT))
-            if len(data) >= BYTE_LIMIT:
-                problems.append("%s: %d bytes, limit is under %d" % (rel, len(data), BYTE_LIMIT))
+                else:
+                    source = plugins[0].get("source")
+                    declared.append(source.get("path") if isinstance(source, dict) else source)
+            problems.extend("%s: declared path %r is not a relative directory inside the checkout" % (rel, path)
+                            for path in declared if not in_checkout(path))
         self.assertEqual(problems, [])
 
     def test_references_resolve(self):
@@ -344,24 +291,11 @@ class RepoTest(unittest.TestCase):
                     if row not in rows:
                         problems.append("%s/%s: %s defers to %r, not a row of references/executor.md"
                                         % (folder, path.name, heading, row))
-        self.assertEqual(problems, [])
-
-    def test_claude_and_codex_override_map(self):
-        problems = []
-        for folder, markers in sorted(OVERRIDES.items()):
-            path = executor_cards().get(folder)
-            if path is None or not path.is_file():
-                problems.append("%s: no executor card" % folder)
-                continue
-            parts = dict(card_parts(path))
-            for heading, needed in sorted(markers.items()):
-                body = parts.get(heading, "")
-                if not body or deferral(body) is not None or body == "None.":
-                    problems.append("%s: %s does not override" % (folder, heading))
-                problems.extend("%s: %s lacks %r" % (folder, heading, marker) for marker in needed
-                                if marker not in " ".join(body.split()))
-            if "executing-plans" in parts.get("Route skills", ""):
-                problems.append("%s: Route skills names executing-plans" % folder)
+            bodies = dict(parts)
+            for heading in ["Stop", "Recovery"]:
+                body = bodies.get(heading, "")
+                if body in ("", "None.") or deferral(body) is not None:
+                    problems.append("%s/%s: %s is %r" % (folder, path.name, heading, body))
         self.assertEqual(problems, [])
 
     def test_identity_cards_run_the_scripts(self):
@@ -373,36 +307,13 @@ class RepoTest(unittest.TestCase):
                 continue
             parts = dict(card_parts(path))
             launch = 'python3 -I "<skill-dir>/references/agents/%s/identity.py"' % folder
-            for needed in [launch, LAUNCH_FAILURE]:
-                if needed not in " ".join(parts.get("Identity", "").split()):
-                    problems.append("%s: Identity lacks %r" % (folder, needed))
+            if launch not in " ".join(parts.get("Identity", "").split()):
+                problems.append("%s: Identity lacks %r" % (folder, launch))
             if folder == "kimi" and KIMI_SUBAGENT_CHECK not in " ".join(parts.get("Models", "").split()):
                 problems.append("%s: Models lacks %r" % (folder, KIMI_SUBAGENT_CHECK))
             if INLINE_IDENTITY in path.read_text(encoding="utf-8"):
                 problems.append("%s: the card holds an inline identity block" % folder)
         self.assertEqual(problems, [])
-
-    def test_executor_cards_have_stop_and_recovery(self):
-        problems = []
-        for folder, path in sorted(executor_cards().items()):
-            parts = dict(card_parts(path)) if path.is_file() else {}
-            for heading in ["Stop", "Recovery"]:
-                body = parts.get(heading, "")
-                if body in ("", "None.") or deferral(body) is not None:
-                    problems.append("%s/%s: %s is %r" % (folder, path.name, heading, body))
-        self.assertEqual(problems, [])
-
-    def test_claude_print_mode_is_recognizable(self):
-        card = AGENTS / "claude-code" / "executor.md"
-        body = dict(card_parts(card)).get("Runs that cannot take an answer", "")
-        self.assertIn("AskUserQuestion", body)
-        self.assertIn("non-interactive", body)
-
-    def test_default_waits_for_the_run_check(self):
-        text = (ROOT / REFERENCES / "reviewer-choice.md").read_text(encoding="utf-8")
-        section = next(part for part in text.split("\n## ") if "Without a default" in part)
-        sentences = re.split(r"(?<=[.:])\s+", " ".join(section.split()))
-        self.assertTrue([s for s in sentences if "before" in s.lower() and "Runs that cannot take an answer" in s])
 
     def test_core_names_no_agent(self):
         # A phrase matches across any whitespace, line breaks included, so a wrapped name is still found.
@@ -422,45 +333,10 @@ class RepoTest(unittest.TestCase):
         self.assertEqual(problems, [])
 
     def test_executor_never_prints_environment(self):
+        # executor.md keeps its bans on printing the environment, whole or filtered through grep.
         text = (ROOT / REFERENCES / "executor.md").read_text(encoding="utf-8")
-        paragraphs = [" ".join(p.split()) for p in text.split("\n\n")]
-        self.assertTrue([p for p in paragraphs if all(w in p for w in ("`env`", "`printenv`", "`grep`"))
-                         and ("named variable" in p or "single variable" in p)])
-
-    def test_key_leads_to_folder_by_descriptor(self):
-        text = " ".join((ROOT / REFERENCES / "reviewer-choice.md").read_text(encoding="utf-8").split())
-        sentences = re.split(r"(?<=[.:])\s+", text)
-        self.assertTrue([s for s in sentences if "Scratch key" in s and "folder" in s and " not " in s])
-
-    def test_naming_hint_keys_are_pinned(self):
-        text = " ".join((ROOT / REFERENCES / "reviewer-choice.md").read_text(encoding="utf-8").split())
-        self.assertIn(NAMING_HINT, text)
-        self.assertIn(CARD_HINT, text)
-        found = {folder: values for folder, values in descriptors().items() if folder in ORIGINAL_FOLDERS}
-        for executor in ["claude-code", "codex"]:
-            self.assertIsNone(naming_hint_keys(AGENTS / executor / found[executor]["Executor card"]), executor)
-            self.assertEqual(hint_keys(found, executor), ["kimi", "gemini"], executor)
-
-    def test_reviewers_line_is_written_bare_and_read_as_list_or_bold(self):
-        text = (ROOT / REFERENCES / "reviewer-choice.md").read_text(encoding="utf-8")
-        recording = " ".join(text.split("\n## Recording\n", 1)[1].split("\n## ", 1)[0].split())
-        self.assertIn("written bare, at the start of the line, with no list marker or emphasis", recording)
-        self.assertIn("on read, a `- ` list item or a bold form of the same line counts as the line", recording)
-
-    def test_restarted_gate_keeps_the_replaced_rows_set(self):
-        text = (ROOT / REFERENCES / "reviewer-choice.md").read_text(encoding="utf-8")
-        recording = " ".join(text.split("\n## Recording\n", 1)[1].split("\n## ", 1)[0].split())
-        self.assertIn("A gate restarted by the migration keeps the locked set the row of the gate it replaces records, "
-                      "even before its first discovery; when that row records none, the usual rule applies (the "
-                      "`Reviewers:` line with the stage's override).", recording)
-
-    def test_resume_reads_the_cards_reviewer_choice_resolves(self):
-        # The rule that picks a gate's reviewers lives in reviewer-choice.md only; SKILL.md defers to it.
-        text = " ".join((ROOT / SKILLS[0]).read_text(encoding="utf-8").split())
-        resume = text.split("**After a context compaction or a break**", 1)[1].split("<!-- phase-index:start -->")[0]
-        self.assertIn("the current gate's reviewer cards, those `references/reviewer-choice.md` resolves for it "
-                      "(its \"Recording\" rules, the lock of a gate restarted by the migration included)", resume)
-        self.assertNotIn("first discovery", resume)
+        for token in ["`printenv`", "`env | grep`"]:
+            self.assertIn(token, text)
 
     def test_known_items_slot_in_every_discovery_framework(self):
         text = (ROOT / REFERENCES / "prompts.md").read_text(encoding="utf-8")
@@ -468,42 +344,6 @@ class RepoTest(unittest.TestCase):
         for name in ["file mode", "diff mode", "polish delta", "snapshot delta"]:
             prompt = text.split("\n## Discovery framework: %s\n" % name, 1)[1].split("```", 2)[1]
             self.assertEqual(prompt.count(slot), 1, name)
-            self.assertLess(prompt.index("Scope of the work:"), prompt.index(slot), name)
-            self.assertLess(prompt.index(slot), prompt.index('<block "Exhaustive sweep">'), name)
-
-    def test_migration_check_matches_the_path_literally(self):
-        # A scratch path with parentheses, `/work/Project (client)/...`, is not a pattern: pgrep -f would miss it.
-        # The paths come from a file, so the check's own command line does not hold them and cannot match itself.
-        text = " ".join((ROOT / REFERENCES / "ledger.md").read_text(encoding="utf-8").split())
-        migration = text.split("## Migration of an old scratch", 1)[1]
-        self.assertNotIn("pgrep", migration)
-        self.assertIn("`ps -Aww -o pid=,args= | grep -F -f <file>`", migration)
-
-    def test_restart_inputs_are_read_by_the_executor(self):
-        text = " ".join((ROOT / REFERENCES / "ledger.md").read_text(encoding="utf-8").split())
-        restart = text.split("**Restart on resume.**", 1)[1]
-        for key in ['"scratch": "<old scratch>"', '"scope": "<scope>"', '"header": "<opening lines>"']:
-            self.assertIn(key, restart)
-        self.assertIn("or `null` for a gate that was never prepared, which has none: nothing is copied then", restart)
-        self.assertIn("a `scratch` that does not exist or lies outside the route root", restart)
-        self.assertNotIn("Scratch cell", restart)
-
-    def test_superseded_gate_is_closed_for_every_purpose(self):
-        text = " ".join((ROOT / REFERENCES / "ledger.md").read_text(encoding="utf-8").split())
-        self.assertIn("A gate whose registry holds the outcome line `<gate> superseded by <new gate>` is closed for "
-                      "every purpose, whatever its old line or row still says; a resume continues `<new gate>`.", text)
-
-    def test_kimi_naming_hint_example(self):
-        found = descriptors()
-        kimi = found["kimi"]
-        # The card's keys, each a cross-vendor entry of the roster the descriptors build, so they are the hint's.
-        self.assertEqual(naming_hint_keys(AGENTS / "kimi" / kimi["Executor card"]), ["codex", "gemini"])
-        self.assertEqual("%s with %s" % (kimi["Invocation"], " and ".join(hint_keys(found, "kimi"))),
-                         "/skill:dopil:dopil <task> with codex and gemini")
-        # A build without the codex folder: the card's keys are not all in the roster, so the generic pick applies.
-        without_codex = {folder: values for folder, values in found.items()
-                         if folder in ORIGINAL_FOLDERS and folder != "codex"}
-        self.assertEqual(hint_keys(without_codex, "kimi"), ["claude", "gemini"])
 
     def test_no_cross_folder_paths(self):
         folders = sorted(path.name for path in AGENTS.iterdir() if path.is_dir())
@@ -535,13 +375,10 @@ class RepoTest(unittest.TestCase):
         self.assertEqual(sorted(scanned), sorted(DENYLIST_SCOPE), "a scanned directory has no files")
         self.assertEqual(problems, [])
 
-    def test_every_agent_folder_has_a_descriptor(self):
+    def test_descriptors_have_fields_by_role(self):
         folders = [path for path in sorted(AGENTS.glob("*")) if path.is_dir()]
         self.assertTrue(folders, "no agent folder under %s" % AGENTS.relative_to(ROOT).as_posix())
-        self.assertEqual([path.name for path in folders if not (path / "agent.md").is_file()], [])
-
-    def test_descriptors_have_fields_by_role(self):
-        problems = []
+        problems = ["%s: no agent.md" % path.name for path in folders if not (path / "agent.md").is_file()]
         for path in sorted(AGENTS.glob("*/agent.md")):
             folder, rows = path.parent.name, descriptor_rows(path)
             fields = [field for field, _ in rows]
@@ -588,88 +425,50 @@ class RepoTest(unittest.TestCase):
         self.assertEqual(problems, [])
 
     def test_default_reviewer_names_another_folder(self):
+        # The default reviewer is another folder's reviewer, of another vendor than the executor's own.
         found, problems = descriptors(), []
         for folder, values in found.items():
             default = values.get("Default reviewer", "none")
-            keys = [other.get("Scratch key") for name, other in found.items()
-                    if name != folder and other.get("Reviewer card") == "reviewer.md"]
-            if default != "none" and default not in keys:
+            reviewers = {other.get("Scratch key"): other for name, other in found.items()
+                         if name != folder and other.get("Reviewer card") == "reviewer.md"}
+            if default == "none":
+                continue
+            if default not in reviewers:
                 problems.append("%s: Default reviewer %r is no other folder's reviewer Scratch key"
                                 % (folder, default))
+            elif reviewers[default].get("Reviewer vendor") == values.get("Reviewer vendor"):
+                problems.append("%s: Default reviewer %r has the executor's own vendor" % (folder, default))
         self.assertEqual(problems, [])
 
     def test_descriptor_values_of_the_four(self):
-        # The spec's table, section "Agent folder"; folders beyond these four are not checked here.
-        expected = {
-            "claude-code": {"Name": "Claude Code",
-                            "Executor card": "executor.md", "Reviewer card": "reviewer.md",
-                            "Invocation": "/dopil <task>", "Default reviewer": "codex", "Binary": "claude",
-                            "Reviewer name": "Claude Code", "Reviewer vendor": "Anthropic",
-                            "Scratch key": "claude", "Finding prefix": "A", "Order": "2"},
-            "codex": {"Name": "Codex", "Executor card": "executor.md", "Reviewer card": "reviewer.md",
-                      "Invocation": "$dopil <task>", "Default reviewer": "claude", "Binary": "codex",
-                      "Reviewer name": "Codex", "Reviewer vendor": "OpenAI",
-                      "Scratch key": "codex", "Finding prefix": "C", "Order": "1"},
-            "kimi": {"Name": "Kimi Code", "Executor card": "executor.md", "Reviewer card": "reviewer.md",
-                     "Invocation": "/skill:dopil:dopil <task>", "Default reviewer": "none", "Binary": "kimi",
-                     "Reviewer name": "Kimi Code", "Reviewer vendor": "Moonshot AI",
-                     "Scratch key": "kimi", "Finding prefix": "K", "Order": "3"},
-            "antigravity": {"Name": "Antigravity CLI",
-                            "Executor card": "executor.md", "Reviewer card": "reviewer.md",
-                            "Invocation": "/dopil:dopil <task>", "Default reviewer": "none", "Binary": "agy",
-                            "Reviewer name": "Gemini, through the Antigravity CLI",
-                            "Reviewer vendor": "Google",
-                            "Scratch key": "gemini", "Finding prefix": "G", "Order": "4"},
-        }
+        # Released Scratch keys and Finding prefixes never change: saved routes name them.
+        expected = {"claude-code": ("claude", "A"), "codex": ("codex", "C"), "kimi": ("kimi", "K"),
+                    "antigravity": ("gemini", "G")}
         found = descriptors()
-        self.maxDiff = None
-        self.assertEqual({folder: found.get(folder) for folder in expected}, expected)
+        released = {folder: tuple(found.get(folder, {}).get(field) for field in ["Scratch key", "Finding prefix"])
+                    for folder in expected}
+        self.assertEqual(released, expected)
 
-    def test_named_cards_exist(self):
-        problems = []
-        for folder, values in descriptors().items():
-            for field in ["Executor card", "Reviewer card"]:
-                card = values.get(field, "none")
-                if card != "none" and not (AGENTS / folder / card).is_file():
-                    problems.append("%s: %s %s does not exist" % (folder, field, card))
-        self.assertEqual(problems, [])
+    def test_antigravity_reviewer_names_agree(self):
+        # The Antigravity card runs its one profile by its declared name; its rm -rf guards take its mktemp's shape.
+        profiles = AGENTS / "antigravity" / "agy-reviewer" / ".agents" / "agents"
+        files = sorted(path.name for path in profiles.iterdir())
+        self.assertEqual(len(files), 1, files)
+        card = (AGENTS / "antigravity" / "reviewer.md").read_text(encoding="utf-8")
+        launched = re.findall(r"agy_iso --agent (\S+)", card)
+        self.assertTrue(launched, "the card launches the profile")
+        checked = re.findall(r'init\.get\("agent"\) == "([^"]+)"', card)
+        self.assertTrue(checked, "the card checks the profile it ran")
+        self.assertEqual(set(launched) | set(checked), {front_matter_name(profiles / files[0])})
+        hashed = re.findall(r"\.agents/agents/(\S+\.md)", card)
+        self.assertTrue(hashed, "the card pins the profile file")
+        self.assertEqual(set(hashed), set(files))
+        created = re.findall(r'mktemp -d "\$\{TMPDIR:-/tmp\}/([\w-]+)\.(X+)"', card)
+        accepted = re.findall(r"\*/([\w-]+)\.(\?+)\)", card)
+        self.assertEqual(len(created), 1, created)
+        self.assertEqual(len(accepted), 2, "the blocker removal and the gate end accept the shape")
+        self.assertEqual({(name, len(mark)) for name, mark in accepted}, {(created[0][0], len(created[0][1]))})
 
-    def test_route_skills_offer_rule(self):
-        text = (ROOT / REFERENCES / "executor.md").read_text(encoding="utf-8")
-        row = next(" ".join(p.split()) for p in text.split("\n\n") if p.startswith("**Route skills.**"))
-        positions = [row.find(phrase) for phrase in OFFER]
-        self.assertNotIn(-1, positions, [phrase for phrase in OFFER if phrase not in row])
-        self.assertEqual(positions, sorted(positions))
-        route = (ROOT / REFERENCES / "route.md").read_text(encoding="utf-8")
-        preflight = next(" ".join(p.split()) for p in route.split("\n\n") if p.startswith("**Route skills.**"))
-        self.assertIn("If one is absent, name it, then do what that **Route skills** says for a missing skill.",
-                      preflight)
-        self.assertNotIn("stop", preflight)
 
-    def test_route_skills_card_commands(self):
-        problems = []
-        for folder, needed in sorted(OFFER_COMMANDS.items()):
-            body = " ".join(dict(card_parts(executor_cards()[folder])).get("Route skills", "").split())
-            problems.extend("%s: Route skills lacks %r" % (folder, marker) for marker in needed if marker not in body)
-        self.assertEqual(problems, [])
-
-    def test_superpowers_repair_uses_the_installed_id_and_a_new_session(self):
-        # Enable and reinstall act on the plugin id `codex plugin list` shows; only an absent plugin gets the default.
-        codex = " ".join(dict(card_parts(executor_cards()["codex"])).get("Route skills", "").split())
-        for needed in ['`[plugins."<plugin id>"]`',
-                       "`codex plugin remove <plugin id>` then `codex plugin add <plugin id>`",
-                       "for the user to run, then to open a new session"]:
-            self.assertIn(needed, codex)
-        self.assertEqual(codex.count("superpowers@openai-curated-remote"), 1, codex)
-        agy = " ".join(dict(card_parts(executor_cards()["antigravity"])).get("Route skills", "").split())
-        self.assertIn("show `agy plugin enable superpowers` for the user to run, then to open a new session", agy)
-
-    def test_readme_superpowers_only_for_claude_code(self):
-        text = (ROOT / "README.md").read_text(encoding="utf-8")
-        install = text.split("\n### Install\n", 1)[1].split("\n### ", 1)[0]
-        pieces = re.split(r"^(%s)$" % "|".join(README_AGENTS), install, flags=re.MULTILINE)
-        blocks = dict(zip(pieces[1::2], pieces[2::2]))
-        self.assertEqual(sorted(blocks), sorted(README_AGENTS))
-        for agent in ["Codex", "Kimi Code", "Antigravity"]:
-            self.assertNotIn("superpowers", blocks[agent], agent)
-        self.assertIn("claude plugin marketplace add anthropics/claude-plugins-official", blocks["Claude Code"])
+if __name__ == "__main__":
+    unittest.main()

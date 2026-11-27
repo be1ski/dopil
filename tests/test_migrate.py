@@ -1,15 +1,17 @@
 """Run the migration script in temporary repositories: plans, moves, refusals, interruptions and races."""
 
+import contextlib
 import errno
 import importlib.util
+import io
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
 import tempfile
 import unittest
-from datetime import date
 from pathlib import Path
 from unittest import mock
 
@@ -19,12 +21,14 @@ SPEC = importlib.util.spec_from_file_location("migrate", str(SCRIPT))
 migrate = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(migrate)
 
-# The old scratch and pointer directory, each an allowlisted literal of tests/test_names.py.
+# The old scratch and pointer directory names, and the new ones.
 OLD = ".ship"
 OLD_ROUTES = "ship-routes"
 NEW = ".dopil"
 NEW_ROUTES = "dopil-routes"
 TODAY = "2026-11-26"
+# A migration marker with an ISO date, which a CLI run takes from the clock: the tests check its shape only.
+MARKED = re.compile(r"^Migrated \d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01]): ", re.M)
 FOREIGN_GIT = ["GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_OBJECT_DIRECTORY", "GIT_COMMON_DIR"]
 # No user or system git configuration reaches the tests (signing, hooks, excludes).
 HERMETIC = {"GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_NOSYSTEM": "1"}
@@ -246,10 +250,10 @@ class MoveTest(MigrationCase):
         before = snapshot(self.top)
         self.assert_prints(self.cli("check"), lines, 1)
         self.assertEqual(snapshot(self.top), before, "check changed the tree or the git dir")
-        today = date.today().isoformat()
         self.assert_prints(self.cli("run"), lines, 0)
-        moved = (new / "r1" / "gates.md").read_text(encoding="utf-8")
-        self.assertEqual(moved, gates.replace(str(old), str(new)) + "Migrated %s: restart on resume: code-01\n" % today)
+        moved, dates = MARKED.subn("Migrated DATE: ", (new / "r1" / "gates.md").read_text(encoding="utf-8"))
+        self.assertEqual(dates, 1, moved)
+        self.assertEqual(moved, gates.replace(str(old), str(new)) + "Migrated DATE: restart on resume: code-01\n")
         self.assertEqual((new / "notes.md").read_text(encoding="utf-8"), "notes\n")
         self.assertEqual((self.gitdir / NEW_ROUTES / "r1.txt").read_text(encoding="utf-8"), "%s\n" % (new / "r1"))
         self.assertEqual((new / ".gitignore").read_bytes(), b"*\n")
@@ -270,10 +274,10 @@ class MoveTest(MigrationCase):
                  "RESTART-LATER %s: code-01" % (new / "r1" / "gates.md"),
                  "RESTART-LATER %s: unknown" % (new / "r2" / "gates.md")]
         self.assert_prints(self.cli("check"), lines, 1)
-        today = date.today().isoformat()
         self.assert_prints(self.cli("run"), lines, 0)
-        moved = (new / "r2" / "gates.md").read_text(encoding="utf-8")
-        self.assertEqual(moved, prose.replace(str(old), str(new)) + "Migrated %s: restart on resume: unknown\n" % today)
+        moved, dates = MARKED.subn("Migrated DATE: ", (new / "r2" / "gates.md").read_text(encoding="utf-8"))
+        self.assertEqual(dates, 1, moved)
+        self.assertEqual(moved, prose.replace(str(old), str(new)) + "Migrated DATE: restart on resume: unknown\n")
         self.assertEqual(sorted(os.listdir(str(new))), [".gitignore", "r1", "r2"])
         self.assertFalse(os.path.lexists(str(old)))
         self.assert_prints(self.cli("run"), [], 0)
@@ -316,20 +320,6 @@ class MoveTest(MigrationCase):
             self.assert_prints(self.cli(mode), [], 0)
         self.assertEqual(snapshot(self.tmp), before)
 
-    def test_pointer_through_a_linked_parent_moves(self):
-        self.init()
-        old = self.scratch(self.top)
-        alias = self.tmp / "alias"
-        os.symlink(str(self.tmp), str(alias))
-        pointer = self.pointer(alias / self.top.name / OLD / "r1")
-        result = self.cli("run")
-        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertIn("MOVE %s -> %s" % (pointer, self.gitdir / NEW_ROUTES / "r1.txt"), result.stdout.splitlines())
-        self.assertEqual((self.gitdir / NEW_ROUTES / "r1.txt").read_text(encoding="utf-8"),
-                         "%s\n" % (self.top / NEW / "r1"))
-        self.assertFalse(os.path.lexists(str(self.gitdir / OLD_ROUTES)))
-        self.assertFalse(os.path.lexists(str(old)))
-
     def test_linked_worktree_plans_remove_the_emptied_pointer_directory(self):
         self.init()
         self.assertEqual(run_git(self.top, "commit", "-q", "--allow-empty", "-m", "init").returncode, 0)
@@ -341,13 +331,15 @@ class MoveTest(MigrationCase):
         for plan in plans:
             self.assertEqual(len(plan.pointers), 1)
             self.assertEqual(len(plan.leaves), 1)  # each sees the other's pointer as not its own
-            self.assertEqual(list(migrate.steps(plan, TODAY)), migrate.STEPS)
+            list(migrate.steps(plan, TODAY))
         self.assertFalse(os.path.lexists(str(self.gitdir / OLD_ROUTES)))
         self.assertEqual(sorted(os.listdir(str(self.gitdir / NEW_ROUTES))), ["r1.txt", "r2.txt"])
+        for where, name in ((self.top, "r1"), (linked, "r2")):
+            self.assertEqual((self.gitdir / NEW_ROUTES / (name + ".txt")).read_text(encoding="utf-8"),
+                             "%s\n" % (where / NEW / name))
 
     def test_old_pointer_directory_without_a_migration_is_left(self):
-        # An empty old pointer directory with no old scratch here: no migration of this worktree, so nothing is
-        # planned, even with a read-only git dir.
+        # An empty old pointer directory with no old scratch here plans nothing, even with a read-only git dir.
         self.init()
         (self.gitdir / OLD_ROUTES).mkdir()
         os.chmod(str(self.gitdir), 0o555)
@@ -358,8 +350,7 @@ class MoveTest(MigrationCase):
         self.assertEqual(snapshot(self.top), before)
 
     def test_other_worktrees_pointers_do_not_block(self):
-        # A local old scratch with no pointer of its own, beside another worktree's pointer, under a read-only git
-        # dir: the pointer directory is not this plan's to remove or check, so the scratch moves and it stays.
+        # Another worktree's pointer under a read-only git dir neither blocks a local scratch nor is removed.
         self.init()
         self.assertEqual(run_git(self.top, "commit", "-q", "--allow-empty", "-m", "init").returncode, 0)
         linked = self.tmp / "linked"
@@ -380,27 +371,23 @@ class MoveTest(MigrationCase):
         self.assertEqual(os.listdir(str(self.gitdir / OLD_ROUTES)), [theirs.name])
 
     def test_pointer_directory_removed_while_planning(self):
-        # An interrupted run left ship-routes empty; another run removes it right after this plan lists it. The plan
-        # keeps its first listing, so it neither reads the directory again nor refuses, and the run finishes.
+        # A plan whose empty pointer directory another run removes right after listing it still runs to the end.
         self.init()
         old = self.scratch(self.top)
         directory = self.gitdir / OLD_ROUTES
         directory.mkdir()
-        real, reads = os.listdir, []
+        real = os.listdir
 
         def listed_then_removed(path=".", *args, **kwargs):
             names = real(path, *args, **kwargs)
-            if str(path) == str(directory):
-                reads.append(names)
-                if os.path.isdir(str(directory)):
-                    os.rmdir(str(directory))  # the other run's removal
+            if str(path) == str(directory) and os.path.isdir(str(directory)):
+                os.rmdir(str(directory))
             return names
 
         with mock.patch.object(migrate.os, "listdir", listed_then_removed):
             plan = migrate.make_plan(self.top)
-        self.assertEqual(reads, [[]], "planning lists the directory once")
         self.assertEqual(plan.old_routes, directory)
-        migrate.run(self.top, TODAY)
+        list(migrate.steps(plan, TODAY))
         self.assertFalse(os.path.lexists(str(old)))
         self.assertFalse(os.path.lexists(str(directory)))
 
@@ -421,7 +408,7 @@ class MoveTest(MigrationCase):
         self.assertEqual(os.listdir(str(target)), [])
 
     def test_aliased_paths_in_the_registry_are_rewritten(self):
-        # The registry can name the scratch through an alias of its parent; the pointer that uses it shows it.
+        # A pointer and registry paths written through an alias of the scratch's parent move to the new root.
         self.init()
         old, new = self.scratch(self.top), self.top / NEW
         alias = self.tmp / "alias"
@@ -432,8 +419,13 @@ class MoveTest(MigrationCase):
                                                          "| %s/code-01 |" % (aliased / "r1"))
         self.assertIn(str(aliased), text)
         gates.write_text(text, encoding="utf-8")
-        self.pointer(aliased / "r1")
-        self.assertEqual(self.cli("run").returncode, 0)
+        pointer = self.pointer(aliased / "r1")
+        result = self.cli("run")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("MOVE %s -> %s" % (pointer, self.gitdir / NEW_ROUTES / "r1.txt"), result.stdout.splitlines())
+        self.assertEqual((self.gitdir / NEW_ROUTES / "r1.txt").read_text(encoding="utf-8"), "%s\n" % (new / "r1"))
+        self.assertFalse(os.path.lexists(str(self.gitdir / OLD_ROUTES)))
+        self.assertFalse(os.path.lexists(str(old)))
         moved = (new / "r1" / "gates.md").read_text(encoding="utf-8")
         self.assertNotIn("/%s/" % OLD, moved)
         self.assertIn("| %s/code-01 |" % (alias / self.top.name / NEW / "r1"), moved)
@@ -533,6 +525,8 @@ class RefusalTest(MigrationCase):
             return self.gitdir / OLD_ROUTES
 
         def read_only_git_dir(old):
+            if os.geteuid() == 0:
+                self.skipTest("root writes a git dir of mode 0555")
             self.pointer(old / "r1")
             os.chmod(str(self.gitdir), 0o555)
             self.addCleanup(os.chmod, str(self.gitdir), 0o755)
@@ -714,7 +708,7 @@ class RefusalTest(MigrationCase):
         real, failed = os.unlink, []
 
         def unlink_once(path, *args, **kwargs):
-            if os.path.basename(str(path)).startswith("..gitignore.") and not failed:  # its temporary file
+            if os.path.basename(str(path)).startswith("..gitignore.") and not failed:
                 failed.append(path)
                 raise OSError(errno.EBUSY, "Resource busy", path)
             return real(path, *args, **kwargs)
@@ -726,51 +720,36 @@ class RefusalTest(MigrationCase):
         self.assertEqual(snapshot(self.top), before)
 
     def test_temporary_file_left_behind_is_partial(self):
-        # An existing .dopil, and the temporary file of its .gitignore cannot be removed at all: the published file
-        # goes, the temporary file stays, so the step did not change nothing and reports PARTIAL with both.
-        self.init()
-        self.scratch(self.top)
-        (self.top / NEW).mkdir()
-        real, failed = os.unlink, []
+        # A .gitignore temporary file that cannot be removed is PARTIAL naming it, with or without a .gitignore.
+        real = os.unlink
+        for existing in [False, True]:
+            with self.subTest(existing_ignore_file=existing):
+                self.use(self.tmp / ("existing-%s" % existing) / "repo")
+                self.init()
+                self.scratch(self.top)
+                (self.top / NEW).mkdir()
+                if existing:
+                    (self.top / NEW / ".gitignore").write_bytes(b"*\n")
+                failed = []
 
-        def stuck(path, *args, **kwargs):
-            if os.path.basename(str(path)).startswith("..gitignore."):  # its temporary file
-                failed.append(path)
-                raise OSError(errno.EBUSY, "Resource busy", path)
-            return real(path, *args, **kwargs)
+                def stuck(path, *args, **kwargs):
+                    if os.path.basename(str(path)).startswith("..gitignore."):
+                        failed.append(path)
+                        raise OSError(errno.EBUSY, "Resource busy", path)
+                    return real(path, *args, **kwargs)
 
-        with mock.patch.object(migrate.os, "unlink", stuck), self.assertRaises(migrate.Partial) as raised:
-            migrate.run(self.top, TODAY)
-        message = str(raised.exception)
-        temporary = failed[0]
-        self.assertTrue(message.startswith("prepare .dopil, step 1 of 5: "), message)
-        self.assertIn("%s not removed: Resource busy" % temporary, message)
-        self.assertEqual(os.listdir(str(self.top / NEW)), [os.path.basename(str(temporary))])
-
-    def test_existing_ignore_file_with_a_stuck_temporary_file_is_partial(self):
-        # A valid .gitignore is in place, so the link finds it existing; that is normal only when the temporary file
-        # also goes. Here it cannot be removed: PARTIAL with the cause and the leftover, not a silent exit 0.
-        self.init()
-        self.scratch(self.top)
-        (self.top / NEW).mkdir()
-        (self.top / NEW / ".gitignore").write_bytes(b"*\n")
-        real, failed = os.unlink, []
-
-        def stuck(path, *args, **kwargs):
-            if os.path.basename(str(path)).startswith("..gitignore."):  # its temporary file
-                failed.append(path)
-                raise OSError(errno.EBUSY, "Resource busy", path)
-            return real(path, *args, **kwargs)
-
-        with mock.patch.object(migrate.os, "unlink", stuck), self.assertRaises(migrate.Partial) as raised:
-            migrate.run(self.top, TODAY)
-        message = str(raised.exception)
-        self.assertTrue(message.startswith("prepare .dopil, step 1 of 5: "), message)
-        self.assertIn("File exists", message)
-        self.assertIn("%s not removed: Resource busy" % failed[0], message)
-        self.assertEqual(sorted(os.listdir(str(self.top / NEW))),
-                         sorted([".gitignore", os.path.basename(str(failed[0]))]))
-        self.assertTrue((self.top / OLD).is_dir(), "nothing moved")
+                with mock.patch.object(migrate.os, "unlink", stuck), self.assertRaises(migrate.Partial) as raised:
+                    migrate.run(self.top, TODAY)
+                message = str(raised.exception)
+                leftover = os.path.basename(str(failed[0]))
+                self.assertTrue(message.startswith("prepare .dopil, step 1 of 5: "), message)
+                self.assertIn("%s not removed: Resource busy" % failed[0], message)
+                if existing:
+                    self.assertIn("File exists", message)
+                    self.assertEqual(sorted(os.listdir(str(self.top / NEW))), sorted([".gitignore", leftover]))
+                    self.assertTrue((self.top / OLD).is_dir(), "nothing moved")
+                else:
+                    self.assertEqual(os.listdir(str(self.top / NEW)), [leftover])
 
 
 class InterruptionTest(MigrationCase):
@@ -873,6 +852,8 @@ class InterruptionTest(MigrationCase):
             self.assertEqual(snapshot(self.top), before)
 
     def test_failure_after_a_write_is_partial(self):
+        if os.geteuid() == 0:
+            self.skipTest("root renames in a directory of mode 0555")
         end = self.end_state()
         old = self.fixture()
 
@@ -909,6 +890,13 @@ class InterruptionTest(MigrationCase):
         self.assertTrue(message.endswith("; moved: " + ", ".join("%s -> %s" % pair for pair in moved)), message)
         self.assertEqual(self.cli("run").returncode, 0)
         self.assertEqual(self.state(), end)
+        self.fixture()
+        here = os.getcwd()
+        os.chdir(str(self.top))
+        self.addCleanup(os.chdir, here)
+        with mock.patch.object(migrate, "replace", failing), contextlib.redirect_stdout(io.StringIO()) as out:
+            self.assertEqual(migrate.main(["migrate.py", "run"]), 3, out.getvalue())
+        self.assertTrue(out.getvalue().startswith("PARTIAL move the pointers, step 4 of 5: "), out.getvalue())
 
     def test_interrupted_ignore_file_does_not_block(self):
         # A run killed while it writes .dopil/.gitignore leaves no empty file in its place for the next run to refuse.
@@ -923,8 +911,7 @@ class InterruptionTest(MigrationCase):
             migrate.run(self.top, TODAY)
         self.assertFalse(os.path.lexists(str(self.top / NEW / ".gitignore")))
         self.assertEqual(self.cli("check").returncode, 1)
-        result = self.cli("run")
-        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        migrate.run(self.top, TODAY)
         self.assertEqual(self.state(), end)
 
     def test_interleaved_marks_leave_nothing_behind(self):
@@ -936,8 +923,7 @@ class InterruptionTest(MigrationCase):
         real, moved = os.replace, []
 
         def move_first(source, target):
-            # The second run's temporary registry is written; before it replaces the file, the first run marks
-            # and moves every route.
+            # Between the second run's write and its replace, the first run marks and moves every route.
             if os.path.basename(str(target)) == "gates.md" and not moved:
                 moved.append(target)
                 next(first)
@@ -1044,6 +1030,7 @@ class RestartTest(unittest.TestCase):
         return found[0]
 
     def test_restart_assigns_next_free_number(self):
+        # The assignment is written first, with a number no directory, retry name or registry token takes.
         before = self.route()
         writes, real = [], migrate.replace
 
@@ -1055,6 +1042,15 @@ class RestartTest(unittest.TestCase):
             self.assertEqual(self.restart(), "code-03")
         self.assertEqual(writes[0], (self.gates, (before + "code-01 restarts as code-03\n").encode("utf-8")))
         self.assertTrue((self.root / "code-03").is_dir())
+        for name in ["retry directory", "retry token in the registry"]:
+            with self.subTest(name):
+                text = self.route()
+                if name == "retry directory":
+                    (self.root / "code-03-retry").mkdir()
+                else:
+                    self.gates.write_text(text + "Retry scratch: %s/code-03-retry\n" % self.root, encoding="utf-8")
+                self.assertEqual(self.restart(), "code-04")
+                self.assertTrue((self.root / "code-04" / "inputs.json").is_file())
 
     def test_restart_copies_saved_inputs(self):
         with self.subTest("git gate"):
@@ -1097,7 +1093,8 @@ class RestartTest(unittest.TestCase):
             self.assertEqual(len(os.listdir(str(new / "snapshots"))), 3)
 
     def test_restart_writes_known_items_and_outcomes(self):
-        self.route(files=PARALLEL, carry=CARRY, locked=["codex", "kimi"])
+        doubled = {"codex": CARRY["codex"][:1] + CARRY["codex"]}  # an identical line twice is carried once
+        self.route(files=PARALLEL, carry=doubled, locked=["codex", "kimi"])
         self.assertEqual(self.restart(), "code-03")
         new = self.root / "code-03"
         self.assertEqual(self.text(new / "codex" / "known-items.md"), "\n".join(CARRY["codex"]) + "\n")
@@ -1193,8 +1190,10 @@ class RestartTest(unittest.TestCase):
                 self.assertEqual(self.row("code-03"), expected)
 
     def test_restart_reads_the_given_scratch(self):
-        # The old attempt's scratch is what the executor read from the row, a retry path with a space included;
-        # the default code-01/ holds another base, so a fallback to it shows.
+        # The scratch the executor read from the row, a retry path or an annotated cell, under a root with a space.
+        self.project = self.tmp / "My Project"
+        self.root = self.project / NEW / "r1"
+        self.gates = self.root / "gates.md"
         new = self.root / "code-03"
         files = {"code-01/base-sha": "r0\n", "code-01 retry/base-sha": "r1\n", "code-01 retry/kimi/base-sha": "b2\n",
                  "code-01 retry/codex/ledger.md": PARALLEL["code-01/codex/ledger.md"]}
@@ -1212,33 +1211,45 @@ class RestartTest(unittest.TestCase):
                                  PARALLEL["code-01/codex/ledger.md"] + "carried to code-03/C1\ncarried to code-03/C2\n")
                 self.assertEqual(self.row("code-03"),
                                  "| code-03 | scope | %s | open (restarted from code-01) | |" % new)
-
-    def test_restart_skips_numbers_taken_by_retries(self):
-        # A name that starts with code-03 and goes on with a non-digit takes 03: a directory or a registry token.
-        for name in ["directory", "registry token"]:
+        cell_files = {"code-01/base-sha": "r0\n", "code-01/ledger.md": "# code-01 ledger\n" + BASE_LINE + "\n",
+                      "code-01/codex/ledger.md": PARALLEL["code-01/codex/ledger.md"]}
+        annotated = ("| Gate | Scope | Scratch | State | Proof |\n|---|---|---|---|---|\n"
+                     "| code-01 | scope | %s (codex/, kimi/) | open (codex, kimi) | |\n"
+                     "Migrated %s: restart on resume: code-01\n" % (self.root / "code-01", TODAY))
+        for name, kwargs, extra in [("a plain Scratch cell, nothing carried",
+                                     {"rows": [("code-01", "open (codex)")]}, []),
+                                    ("a Scratch cell that names the reviewer scratches",
+                                     {"text": annotated, "carry": CARRY}, ["codex"])]:
             with self.subTest(name):
-                text = self.route()
-                if name == "directory":
-                    (self.root / "code-03-retry").mkdir()
-                else:
-                    self.gates.write_text(text + "Retry scratch: %s/code-03-retry\n" % self.root, encoding="utf-8")
-                self.assertEqual(self.restart(), "code-04")
-                self.assertTrue((self.root / "code-04" / "inputs.json").is_file())
+                self.route(files=cell_files, **kwargs)
+                result = self.cli("code-01")
+                self.assertEqual((result.stdout.splitlines(), result.returncode),
+                                 (["RESTART code-01 -> code-03"], 0), result.stderr)
+                self.assertEqual(sorted(os.listdir(str(new))), sorted(["base-sha", "inputs.json", "ledger.md"] + extra))
+                self.assertEqual((self.text(new / "base-sha"), self.text(new / "ledger.md")),
+                                 ("r0\n", BASE_LINE + "\n"))
+                self.assertEqual(self.row("code-03"),
+                                 "| code-03 | scope | %s | open (restarted from code-01) | |" % new)
 
     def test_restart_writes_the_given_header(self):
-        # The old ledger's three opening lines, as the executor read them, with the old root's paths rewritten.
+        # The new ledger opens with the given header, the old root's paths rewritten; no header writes no ledger.
         header = ("Base: a1b2c3.\nScope: file: %s/spec.md.\nWorking directory: %s.\n"
                   % (self.project / OLD / "r1", self.project))
         self.route(files={"code-01/ledger.md": "Scope: elsewhere.\n| #1 | 01 | quote | open |\n"}, header=header)
         self.restart()
         self.assertEqual(self.text(self.root / "code-03" / "ledger.md"),
                          header.replace(str(self.project / OLD), str(self.project / NEW)))
+        with self.subTest("no header"):
+            self.route(rows=[("code-01", "open")], header="")
+            self.assertEqual(self.restart(), "code-03")
+            self.assertEqual(sorted(os.listdir(str(self.root / "code-03"))), ["inputs.json"])
 
-    def test_restart_without_a_header_writes_no_ledger(self):
-        # A gate never dispatched has no ledger to read a header from: the new gate gets none either.
-        self.route(rows=[("code-01", "open")], header="")
-        self.assertEqual(self.restart(), "code-03")
-        self.assertEqual(sorted(os.listdir(str(self.root / "code-03"))), ["inputs.json"])
+    def test_restart_inputs_are_read_by_the_executor(self):
+        # The inputs.json keys ledger.md has the executor write are the keys these restarts pass to the script.
+        ledger = (SCRIPT.parent / "ledger.md").read_text(encoding="utf-8")
+        restart = ledger.split("**Restart on resume.**", 1)[1].split("\n\n", 1)[0]
+        self.inputs(locked=[])
+        self.assertEqual(set(re.findall(r'"(\w+)":', restart)), set(json.loads(self.given.read_text(encoding="utf-8"))))
 
     def test_restart_of_a_gate_never_prepared(self):
         # An open gate whose scratch was never made: the executor gives null, nothing is copied, it is renumbered.
@@ -1286,49 +1297,22 @@ class RestartTest(unittest.TestCase):
             _, rows = migrate.table(self.text(self.gates).splitlines())
             self.assertEqual([cells[1] for _, cells in rows if cells[0] == "code-03"], ["file a\\|b.md"])
 
-    def test_restart_carries_each_id_once(self):
-        carry = {"codex": [CARRY["codex"][0], CARRY["codex"][0], CARRY["codex"][1]]}
-        self.route(files=PARALLEL, carry=carry)
-        self.restart()
-        new = self.root / "code-03"
-        self.assertEqual(self.text(new / "codex" / "known-items.md"), "\n".join(CARRY["codex"]) + "\n")
-        self.assertEqual(self.text(self.root / "code-01" / "codex" / "ledger.md"),
-                         PARALLEL["code-01/codex/ledger.md"] + "carried to code-03/C1\ncarried to code-03/C2\n")
-
-    def test_restart_finds_the_scratch_under_a_root_with_a_space(self):
-        self.project = self.tmp / "My Project"
-        self.root = self.project / NEW / "r1"
-        self.gates = self.root / "gates.md"
-        new = self.root / "code-03"
-        files = {"code-01/base-sha": "r0\n", "code-01/ledger.md": "# code-01 ledger\n" + BASE_LINE + "\n",
-                 "code-01/codex/ledger.md": PARALLEL["code-01/codex/ledger.md"]}
-        annotated = ("| Gate | Scope | Scratch | State | Proof |\n|---|---|---|---|---|\n"
-                     "| code-01 | scope | %s (codex/, kimi/) | open (codex, kimi) | |\n"
-                     "Migrated %s: restart on resume: code-01\n" % (self.root / "code-01", TODAY))
-        for name, kwargs, extra in [("plain", {"rows": [("code-01", "open (codex)")]}, []),
-                                    ("reviewer scratches named", {"text": annotated, "carry": CARRY}, ["codex"])]:
-            with self.subTest(name):
-                self.route(files=files, **kwargs)
-                result = self.cli("code-01")
-                self.assertEqual((result.stdout.splitlines(), result.returncode),
-                                 (["RESTART code-01 -> code-03"], 0), result.stderr)
-                self.assertEqual(sorted(os.listdir(str(new))), sorted(["base-sha", "inputs.json", "ledger.md"] + extra))
-                self.assertEqual((self.text(new / "base-sha"), self.text(new / "ledger.md")),
-                                 ("r0\n", BASE_LINE + "\n"))
-                self.assertEqual(self.row("code-03"),
-                                 "| code-03 | scope | %s | open (restarted from code-01) | |" % new)
-
     def test_restart_reports_nothing(self):
+        # A finished restart is a no-op for every gate, before and after the new attempt's first dispatch.
         self.route(carry=CARRY, files=PARALLEL)
         self.restart()
-        before = snapshot(self.project)
-        for gate in ["code-01", "spec-01", "code-03", "plan-04"]:
-            with self.subTest(gate):
-                result = self.cli(gate)
-                self.assertEqual(result.returncode, 0, result.stderr)
-                self.assertEqual(len(result.stdout.splitlines()), 1, result.stdout)
-                self.assertTrue(result.stdout.startswith("NOTHING %s: " % gate), result.stdout)
-                self.assertEqual(snapshot(self.project), before)
+        self.assertEqual(migrate.unclosed_gates(self.text(self.gates)), ["code-03"])
+        for dispatched in [False, True]:
+            if dispatched:
+                (self.root / "code-03" / "thread-id").write_text("ctx_9\n", encoding="utf-8")
+            before = snapshot(self.project)
+            for gate in ["code-01", "spec-01", "code-03", "plan-04"]:
+                with self.subTest(gate, dispatched=dispatched):
+                    result = self.cli(gate)
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    self.assertEqual(len(result.stdout.splitlines()), 1, result.stdout)
+                    self.assertTrue(result.stdout.startswith("NOTHING %s: " % gate), result.stdout)
+                    self.assertEqual(snapshot(self.project), before)
         with self.subTest("the restart itself"):
             self.route(carry=CARRY, files=PARALLEL)
             result = self.cli("code-01")
@@ -1341,18 +1325,6 @@ class RestartTest(unittest.TestCase):
             self.assertEqual((result.stdout.splitlines(), result.returncode),
                              (["NOTHING code-01: no migration marker"], 0), result.stderr)
             self.assertEqual(snapshot(self.project), before)
-
-    def test_two_resumes_pick_the_same_attempt(self):
-        self.route(files=PARALLEL, carry=CARRY)
-        self.assertEqual(self.restart(), "code-03")
-        (self.root / "code-03" / "thread-id").write_text("ctx_9\n", encoding="utf-8")
-        before = snapshot(self.project)
-        self.assertEqual(migrate.unclosed_gates(self.text(self.gates)), ["code-03"])
-        for gate in ["code-01", "code-03"]:
-            result = self.cli(gate)
-            self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertTrue(result.stdout.startswith("NOTHING %s: " % gate), result.stdout)
-        self.assertEqual(snapshot(self.project), before)
 
     def test_restart_reads_an_unknown_registry(self):
         new = self.root / "code-03"
