@@ -39,7 +39,7 @@ measurement, uses up the usage limit 2.5–3 times faster, while the review runs
 
 ```bash
 jq -r '[.models[] | select(.visibility == "list")] | sort_by(.priority) | .[0].slug // empty' \
-  ~/.codex/models_cache.json
+  "${CODEX_HOME:-$HOME/.codex}/models_cache.json"
 ```
 
 Measured 2026-10-20 on codex-cli 0.163.0: the rollout of a run with the selected model confirms
@@ -272,7 +272,7 @@ Orca agent worker: the reviewer table of `references/adapter-orca.md` applies wi
 **The Codex tier cannot be set by a flag.** Before the first round with `--agent codex`:
 
 ```bash
-grep -n '^service_tier' ~/.codex/config.toml
+grep -n '^service_tier' "${CODEX_HOME:-$HOME/.codex}/config.toml"
 ```
 
 If the value is not `default` — tell the user once that the review will run on this tier and the limit
