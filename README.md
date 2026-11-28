@@ -14,10 +14,10 @@ Claude Code makes the change and runs your project's checks; Codex returns one l
 | --- | --- |
 | Claude Code | `/dopil add CSV headers with codex` |
 | Codex | `$dopil add CSV headers with claude` |
-| Kimi Code | `/skill:dopil:dopil add CSV headers with gemini` |
+| Kimi Code | `/skill:dopil:dopil add CSV headers with claude` |
 | Antigravity | `/dopil:dopil add CSV headers with kimi` |
 
-Any installed, signed-in agent from another vendor can review, with no plugin; `gemini` is Antigravity. Name several, as in `with codex and gemini` in Claude Code, and they review in parallel. Name none, and dopil uses the only one available or asks.
+Codex, Claude Code and Kimi Code can review once installed and signed in, with no plugin. Name several, as in `with codex and kimi` in Claude Code, and they review in parallel. Name none, and dopil uses the only one available or asks.
 
 A feature goes spec → plan → code → polish. The reviewed spec waits for your approval, then your agent implements the plan, tests first, in a git worktree. A one-off, such as a script or a single-file fix, goes code → polish in your current tree.
 

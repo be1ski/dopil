@@ -24,11 +24,9 @@ line says which session or half it belongs to. FIX, STOP and NEXT are typed alon
 | BY-CODEX | `Review by codex.` |
 | BY-CLAUDE | `Review by claude.` |
 | BY-KIMI | `Review by kimi.` |
-| BY-GEMINI | `Review by gemini.` |
 | BY-CODEX-KIMI | `Review by codex and kimi.` |
 | PAR-CODEX | `Codex in parallel.` |
 | PAR-KIMI | `Kimi in parallel.` |
-| PAR-GEMINI | `Gemini in parallel.` |
 | FIX | `Before you accept this task, ask its writer for one small follow-up: rename any name that is unclear; if nothing is unclear, have it reply that nothing changed.` |
 | STOP | `Stop the work now.` |
 | NEXT | `What now?` |
@@ -101,11 +99,11 @@ sandbox, no reviewer process, worker or gate round).
 
 | Executor | Form | Entries, in order |
 |---|---|---|
-| Claude Code | its question tool, multi-select; the answer continues the same turn | `codex`, `kimi`, `gemini`, All at once |
-| Codex | plain text, numbered, ending with how to name reviewers in a `$dopil` request; the turn ends | `claude`, `kimi`, `gemini`, All at once |
-| Kimi Code under `--auto` | plain text, numbered, ending with how to name reviewers in a `/skill:dopil:dopil` request; the turn ends | `codex`, `claude`, `gemini`, All at once |
+| Claude Code | its question tool, multi-select; the answer continues the same turn | `codex`, `kimi`, All at once |
+| Codex | plain text, numbered, ending with how to name reviewers in a `$dopil` request; the turn ends | `claude`, `kimi`, All at once |
+| Kimi Code under `--auto` | plain text, numbered, ending with how to name reviewers in a `/skill:dopil:dopil` request; the turn ends | `codex`, `claude`, All at once |
 | Antigravity on a Gemini model | `ask_question`, multi-select, in this order, no "(Recommended)" | `codex`, `claude`, `kimi`, All at once |
-| Antigravity on a non-Gemini model | the same | every reviewer of another vendor than the model's, in the order `codex`, `claude`, `kimi`, `gemini` (a `claude-` model: `codex`, `kimi`, `gemini`), All at once |
+| Antigravity on a non-Gemini model | the same | every reviewer of another vendor than the model's, in the order `codex`, `claude`, `kimi` (a `claude-` model: `codex`, `kimi`), All at once |
 
 ## Continuity
 
@@ -124,11 +122,12 @@ Steps: start the variant; send the request; answer as the instance says; run to 
 Assert: the dialog as "Menus" says; the announcement names the set (record verbatim); `gates.md` holds `Reviewers:
 <set>`; every gate is reviewed by every reviewer in the set, each verification continuous; outside Orca the reviewers
 run headless and no Orca worker exists; in Orca one receipt per reviewer and round (agent, model, effort, its
-terminal in the sandbox), every edit by the executor's writing workers (their receipts' agent and model) and none by
-the main agent, the executor waking by itself on every `worker_done` with no keystroke from you, every reviewer and
-writer worker of the route ended by its card's closing procedure or by Orca's release of a settled worker, and a plain
-shell that `orca worktree create` opened recorded, not asserted; the final report names each gate's reviewers with
-their pins, the executor's vendor and model family, and the polish delta or its absence.
+terminal in the sandbox), every edit by the executor's writing workers (their receipts' agent and model; for
+Antigravity, its own `invoke_subagent` subagents, with no Orca worker running `agy`) and none by the main agent, the
+executor waking by itself on every `worker_done` with no keystroke from you, every reviewer and writer worker of the
+route ended by its card's closing procedure or by Orca's release of a settled worker, and a plain shell that `orca
+worktree create` opened recorded, not asserted; the final report names each gate's reviewers with their pins, the
+executor's vendor and model family, and the polish delta or its absence.
 
 ### A-claude-one · baseline
 
@@ -137,7 +136,7 @@ Request: T1
 
 ### A-claude-all · baseline
 
-Executor: Claude Code · Reviewers: codex, kimi, gemini · in Orca. Answer: ALL.
+Executor: Claude Code · Reviewers: codex, kimi · in Orca. Answer: ALL.
 Request: T1
 
 ### A-codex-one · baseline
@@ -148,19 +147,19 @@ Request: T1
 
 ### A-codex-all · baseline
 
-Executor: Codex · Reviewers: claude, kimi, gemini · in Orca. Answer: ALL. The plain-text check of A-codex-one.
+Executor: Codex · Reviewers: claude, kimi · in Orca. Answer: ALL. The plain-text check of A-codex-one.
 Request: T1
 
 ### A-kimi-one · baseline
 
 Executor: Kimi Code · Reviewers: codex · outside Orca. Answer: `codex`. Also: the identity result (`ALIAS`,
 `PROVIDER TYPE: kimi`, vendor Moonshot AI) before the dialog; the plain-text question ends with the example
-`/skill:dopil:dopil <task> with codex and gemini`.
+`/skill:dopil:dopil <task> with codex and claude`.
 Request: T1
 
 ### A-kimi-all · baseline
 
-Executor: Kimi Code · Reviewers: codex, claude, gemini · in Orca. Answer: ALL. Also: each writer in a terminal the
+Executor: Kimi Code · Reviewers: codex, claude · in Orca. Answer: ALL. Also: each writer in a terminal the
 executor created with its pinned `kimi --auto -m <alias>` launch and started by `worker-start --terminal`, never
 `worker-start --agent kimi`.
 Request: T1
@@ -173,8 +172,7 @@ Request: T1
 
 ### A-agy-gemini-all · baseline
 
-Executor: Antigravity on a Gemini model · Reviewers: codex, claude, kimi · in Orca. Answer: ALL. Also: writers by
-`worker-start --agent antigravity --model <the identity MODEL> --keep-open`, receipt mode `terminal`.
+Executor: Antigravity on a Gemini model · Reviewers: codex, claude, kimi · in Orca. Answer: ALL.
 Request: T1
 
 ### A-agy-other-one · baseline
@@ -213,9 +211,9 @@ discovery's result is saved in the gate scratch: stop the process and prove it g
 
 ### C-claude-one · baseline
 
-Executor: Claude Code · Reviewers: codex · print mode, `PATH` without `kimi` and `agy`. Assert: dopil's own probe in
-the events finds no `kimi` and no `agy`; no question; `Reviewers: codex`; the Codex discovery ran headless, with its
-thread id and review in the gate scratch.
+Executor: Claude Code · Reviewers: codex · print mode, `PATH` without `kimi`. Assert: dopil's own probe in the
+events finds no `kimi`; no question; `Reviewers: codex`; the Codex discovery ran headless, with its thread id and
+review in the gate scratch.
 Request: T1
 
 ### C-claude-several · baseline
@@ -227,21 +225,20 @@ Request: T1
 
 ### C-claude-parallel · baseline
 
-Executor: Claude Code · Reviewers: as resolved · print mode, then interactive outside Orca. Run (a), print mode:
-record the resolution (the baseline's text: no default, so a companion is chosen among `codex` and `gemini`;
-several, so the dialog without `kimi`, its All at once entry kept, as the last output with the how-to-name line;
-nothing dispatched). Then settle and reset as `runner-brief.md`, "After each case", steps 1–4 say, and check the
-sandbox as "Before each case" says, so run (b) also starts from `BASE`; each run's evidence goes under
-`$E/<case>/a/` or `$E/<case>/b/`. Run (b), interactive, stopped once every reviewer's first discovery started:
-record the resolution (the baseline's text: `kimi` plus the default `codex`, no question). Assert: each run's
-resolution, question entries and dispatches as recorded on the baseline.
+Executor: Claude Code · Reviewers: as resolved · print mode, then interactive outside Orca. Run (a), print mode,
+stopped once every reviewer's first discovery started: record the resolution (the baseline's text: no default, so the
+companion is the one remaining reviewer `codex`, no question). Then settle and reset as `runner-brief.md`, "After each
+case", steps 1–4 say, and check the sandbox as "Before each case" says, so run (b) also starts from `BASE`; each run's
+evidence goes under `$E/<case>/a/` or `$E/<case>/b/`. Run (b), interactive, stopped once every reviewer's first
+discovery started: record the resolution (the baseline's text: `kimi` plus the default `codex`, no question). Assert:
+each run's resolution, question entries and dispatches as recorded on the baseline.
 Request (both runs): T1 + PAR-KIMI
 
 ### C-codex-one · baseline
 
-Executor: Codex · Reviewers: claude · print mode, `PATH` without `kimi` and `agy`, with Codex's `PATH` flags. Assert:
-dopil's own probe in the events finds no `kimi` and no `agy`; no question; `Reviewers: claude`; the Claude Code
-discovery ran headless, with its session id and review in the gate scratch.
+Executor: Codex · Reviewers: claude · print mode, `PATH` without `kimi`, with Codex's `PATH` flags. Assert: dopil's
+own probe in the events finds no `kimi`; no question; `Reviewers: claude`; the Claude Code discovery ran headless,
+with its session id and review in the gate scratch.
 Request: T1
 
 ### C-codex-several · baseline
@@ -457,7 +454,7 @@ discovery receipt of every chosen reviewer.
 
 ### E-claude-one-available · baseline
 
-Executor: Claude Code · Reviewers: codex · in Orca, `PATH` without `kimi` and `agy`. Assert: no dialog; the
+Executor: Claude Code · Reviewers: codex · in Orca, `PATH` without `kimi`. Assert: no dialog; the
 announcement names `codex`; `Reviewers: codex`; one Codex receipt.
 Request: T1
 
@@ -476,32 +473,32 @@ Request: T1
 
 ### E-claude-numbered · baseline
 
-Executor: Claude Code · Reviewers: gemini · in Orca. Answer: `3` typed into the tool's free-text entry. Assert:
-`Reviewers: gemini`; one Gemini receipt and no other reviewer.
+Executor: Claude Code · Reviewers: kimi · in Orca. Answer: `2` typed into the tool's free-text entry. Assert:
+`Reviewers: kimi`; one Kimi receipt and no other reviewer.
 Request: T1
 
 ### E-claude-all-except · baseline
 
-Executor: Claude Code · Reviewers: codex, gemini · in Orca. Answer: `all except kimi` typed into the free-text entry.
-Assert: `Reviewers:` with `codex` and `gemini`; their receipts; no Kimi.
+Executor: Claude Code · Reviewers: codex · in Orca. Answer: `all except kimi` typed into the free-text entry.
+Assert: `Reviewers: codex`; its receipt; no Kimi.
 Request: T1
 
 ### E-kimi-companion · baseline
 
-Executor: Kimi Code · Reviewers: codex, gemini · in Orca. Answer: `gemini`. Assert: the companion question in plain
-text with `claude`, `gemini`, All at once (no `codex`, no `kimi`) and the how-to-name line; `Reviewers:` with
-`codex` and `gemini`; both receipts. Record any announcement made before the set is resolved.
+Executor: Kimi Code · Reviewers: codex, claude · in Orca. Assert: no companion question, since `claude` is the one
+remaining reviewer; `Reviewers:` with `codex` and `claude`; both receipts. Record any announcement made before the
+set is resolved.
 Request: T1 + PAR-CODEX
 
 ### E-agy-companion · baseline
 
 Executor: Antigravity on a Gemini model · Reviewers: kimi, codex · in Orca. Answer: `codex`. Assert: `ask_question`
-with `codex`, `claude`, All at once (no `kimi`, no `gemini`); `Reviewers:` with `kimi` and `codex`; both receipts.
+with `codex`, `claude`, All at once (no `kimi`); `Reviewers:` with `kimi` and `codex`; both receipts.
 Request: T1 + PAR-KIMI
 
 ### E-claude-none · baseline
 
-Executor: Claude Code · Reviewers: none · in Orca, `PATH` without `codex`, `kimi` and `agy`. Assert: the executor says
+Executor: Claude Code · Reviewers: none · in Orca, `PATH` without `codex` and `kimi`. Assert: the executor says
 no reviewer is available and stops; no dialog, no dispatch, no route step.
 Request: T1
 
@@ -550,16 +547,6 @@ Request: RC + BY-KIMI
 Executor: Claude Code · Reviewers: kimi · in Orca, a kept terminal.
 Request: RC + BY-KIMI
 
-### R-gemini-headless · baseline
-
-Executor: Claude Code · Reviewers: gemini · outside Orca.
-Request: RC + BY-GEMINI
-
-### R-gemini-orca · baseline
-
-Executor: Claude Code · Reviewers: gemini · in Orca, a kept terminal.
-Request: RC + BY-GEMINI
-
 ## Group F: a full route with writers, per executor card
 
 Steps for `F-<card>`: in Orca, send the request; at the first task writer's `worker_done`, before the executor
@@ -568,7 +555,7 @@ to the final report.
 
 Assert: every edit by the executor's writing workers (their receipts' agent and model), none by the main agent; the
 forced follow-up goes the card's way and completes (Claude Code, Codex: `send` to the writer's latest dispatch with
-`delivery` `reopened` or `follow_up`, or `started_fresh` with a ledger line; Kimi Code, Antigravity: `terminal wait
+`delivery` `reopened` or `follow_up`, or `started_fresh` with a ledger line; Kimi Code: `terminal wait
 --for tui-idle`, then `worker-start --terminal <the same handle>` with a `ready` receipt, no `send` to a writer, the
 writer's session holding both prompts); each verification continuous; the executor waking by itself on every
 `worker_done`; every gate closed with its proof; the final report; every reviewer and writer worker of the route
@@ -580,11 +567,10 @@ Steps for `F-stop-<card>`: in Orca, send the request; once the first task writer
 
 Assert: every writing worker of the tree stopped and proven before any save or rollback (Claude Code, Codex:
 `worker-stop` with `state: stopped`, `processAction: closed_agent_terminal`, `close.ptyKilled: true`; Kimi Code:
-`terminal close` with `close.ptyKilled: true`, or the handle missing from an untruncated `terminal list`;
-Antigravity: `worker-stop` with `close.ptyKilled: true`, else that terminal close), the proof earlier in the
-transcript than the saved patch and any rollback; the ledger line `Stopped by user: dispatch <id>, patch <path>, tree
-at <SHA>`; a rollback only where `gates.md` recorded the tree clean before the first dispatch (record which); no
-continuation: no new writer and no `send` to the stopped one.
+`terminal close` with `close.ptyKilled: true`, or the handle missing from an untruncated `terminal list`), the proof
+earlier in the transcript than the saved patch and any rollback; the ledger line `Stopped by user: dispatch <id>, patch
+<path>, tree at <SHA>`; a rollback only where `gates.md` recorded the tree clean before the first dispatch (record
+which); no continuation: no new writer and no `send` to the stopped one.
 
 ### F-claude · baseline
 
@@ -606,12 +592,6 @@ proven gone before a new writer; a fresh writer in a new pinned terminal with th
 completes; record whether the final report names the recovery.
 Request: T2 + BY-CODEX
 
-### F-agy · baseline
-
-Executor: Antigravity on a Gemini model · Reviewers: codex · in Orca. Also the lost writer of F-kimi, with the
-writer's `--model` pin kept.
-Request: T2 + BY-CODEX
-
 ### F-stop-claude · baseline
 
 Executor: Claude Code · Reviewers: codex · in Orca.
@@ -627,11 +607,6 @@ Request: T2 + BY-CLAUDE
 Executor: Kimi Code · Reviewers: codex · in Orca.
 Request: T2 + BY-CODEX
 
-### F-stop-agy · baseline
-
-Executor: Antigravity on a Gemini model · Reviewers: codex · in Orca.
-Request: T2 + BY-CODEX
-
 ## Group H: builds and registries without an agent folder
 
 Inputs are mutant exports of the later build (`runtimes.md`, "Building an export"), loaded by the coordinator:
@@ -640,18 +615,17 @@ with `--plugin-dir`.
 
 ### H-no-kimi · after-only
 
-Executor: Claude Code on `-no-kimi` · Reviewers: codex · in Orca, `kimi` on `PATH`. Answer: `codex`; stop at its
-first discovery receipt. Assert: `kimi` present inside the executor (the interactive PATH check of
-`runner-brief.md`, run although nothing is hidden); the dialog lists `codex`, `gemini`, All at once, with no Kimi
-entry; nothing blocks.
+Executor: Claude Code on `-no-kimi` · Reviewers: codex · in Orca, `kimi` on `PATH`. Stop at its first discovery
+receipt. Assert: `kimi` present inside the executor (the interactive PATH check of `runner-brief.md`, run although
+nothing is hidden); no dialog: `codex` is the one available reviewer, named in the announcement, with no Kimi;
+nothing blocks.
 Request: T1
 
 ### H-no-codex · after-only
 
-Executor: Claude Code on `-no-codex` · Reviewers: gemini, kimi · outside Orca. Stop once both first discoveries
-started. Assert: no default, so the companion is the one remaining reviewer `kimi`, with no dialog; `Reviewers:` with
-`gemini` and `kimi`; nothing blocks.
-Request: T1 + PAR-GEMINI
+Executor: Claude Code on `-no-codex` · Reviewers: none · outside Orca. Assert: no default, and no reviewer but
+`kimi`, so `kimi` has no companion: the executor says so and stops; nothing dispatched, no route step.
+Request: T1 + PAR-KIMI
 
 ### H-missing-key-line · after-only
 
@@ -724,8 +698,8 @@ its argument before the first in-session coder edit, printing the same `ALIAS`.
 ### I1-agy-gemini · after-only
 
 Executor: Antigravity on a Gemini model · inside A-agy-gemini-one and A-agy-gemini-all. Assert: the invocation at the
-route's start, printing `MODEL:` and `VENDOR: Google`, and again before every Orca writer start or follow-up and every
-reviewer dispatch, discovery and verification.
+route's start, printing `MODEL:` and `VENDOR: Google`, and again before every edit subagent's start and every reviewer
+dispatch, discovery and verification.
 
 ### I1-agy-other · after-only
 

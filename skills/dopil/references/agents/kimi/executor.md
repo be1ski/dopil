@@ -21,8 +21,7 @@ type names a protocol, not a vendor). Never print the output of `kimi provider l
 by notification, output by `TaskOutput`); `Agent` with `subagent_type: coder` for edits; `AskUserQuestion` (2–4
 options, `multi_select`, "Other" added by the runtime). Under Never Ask (`--auto`) Kimi refuses `AskUserQuestion`
 ("Cannot call AskUserQuestion while auto permission mode is active"), so there every structured question,
-escalations and the dialog alike, is plain text. The naming hint of those questions (`references/reviewer-choice.md`,
-"Dialog form") names the keys `codex` and `gemini`. In Orca, before every turn end while a dispatch of this run is
+escalations and the dialog alike, is plain text. In Orca, before every turn end while a dispatch of this run is
 unsettled (after `worker-start`, a follow-up, `send`, a `reply`, a batch that leaves other workers running, or a
 non-terminal escalation), the executor starts
 `ORCA orchestration check --terminal "$ORCA_TERMINAL_HANDLE" --peek --wait --timeout-ms 1800000 --json` with

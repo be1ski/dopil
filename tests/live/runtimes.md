@@ -40,12 +40,12 @@ named variables, one by one, never the environment):
 
 ## Model ids
 
-None is written in the kit; the coordinator resolves them before a window and gives them to the runners.
-`<agy-gemini-model>`: a `gemini-` entry of `agy models` with its highest effort level. `<agy-other-model>`: a
-non-Gemini entry of `agy models` with its lowest effort level, where a weak model shows whether the cards' commands
-are followed as written. The after run uses the ids the baseline used while `agy models` lists them; otherwise the
-nearest, recorded. Claude Code, Codex and Kimi Code start on the model their configuration selects, and reviewers on
-the model dopil pins: both are recorded from receipts and transcripts, never compared.
+None is written in the kit; the owner names them before a window, from the `/model` picker of their own interactive
+agy session, and the coordinator gives them to the runners. `<agy-gemini-model>`: a Gemini model at its highest
+effort level. `<agy-other-model>`: a non-Gemini model at its lowest effort level, where a weak model shows whether
+the cards' commands are followed as written. The after run uses the ids the baseline used while the picker lists
+them; otherwise the nearest, recorded. Claude Code, Codex and Kimi Code start on the model their configuration
+selects, and reviewers on the model dopil pins: both are recorded from receipts and transcripts, never compared.
 
 ## Loading
 
@@ -63,7 +63,10 @@ The coordinator does all of this, inside a config window the owner approved, and
 
 Before a runtime's batch, the coordinator proves the build it loaded: `diff -r $B/skills <installed>/skills` is empty,
 where `<installed>` is the directory above the `skills/` of the runtime's "Loaded `SKILL.md`" (Claude Code loads `$B`
-itself). A mutant is loaded and proven the same way, and the main export again after it.
+itself). A mutant is loaded and proven the same way, and the main export again after it. Every export, `$B`, `$B0` and
+each mutant, is refused before it is loaded or typed into a start when
+`<export>/skills/dopil/references/agents/antigravity/reviewer.md` exists: that build's Gemini reviewer runs `agy`
+headless.
 
 ## Building an export
 
@@ -94,7 +97,7 @@ order of `PATH` stays; the shim holds symlinks to every executable of that entry
 this in the runner's shell with a fresh shim directory per case:
 
 ```bash
-NEWPATH="$(python3 -I - "$PATH" "<start dir>" "$E/<case>/path-shims" kimi agy <<'PY'
+NEWPATH="$(python3 -I - "$PATH" "<start dir>" "$E/<case>/path-shims" kimi <<'PY'
 import os, sys
 entries, start, shims, hidden = sys.argv[1].split(os.pathsep), sys.argv[2], sys.argv[3], set(sys.argv[4:])
 os.mkdir(shims)

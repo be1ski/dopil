@@ -2,20 +2,21 @@
 
 In an Antigravity CLI session, read `references/executor.md` first. This card overrides its rows **Who the executor
 is** (by **Identity**), **Subagents with edit permission** and **Models** (by **Subagent model**) and **Structured
-question** (by **Tools**). For **Route skills** it adds only the state, the commands and the runtime's skill names.
+question** (by **Tools**). For **Route skills** it adds only the commands, which only the user types, and the
+runtime's skill names.
 
 ## Identity
 
 Run `python3 -I "<skill-dir>/references/agents/antigravity/identity.py"` as written, where `<skill-dir>` is the
-absolute directory of the loaded `SKILL.md`, during the executor's own turn, never inside a writer's terminal: at the
-route's start, with its `VENDOR` recorded in `gates.md` as the executor's vendor, and again before every Orca writer
-start or follow-up and every reviewer dispatch, discovery and verification. It prints `MODEL:` and `VENDOR:`, or one
+absolute directory of the loaded `SKILL.md`, during the executor's own turn, never inside a subagent: at the route's
+start, with its `VENDOR` recorded in `gates.md` as the executor's vendor, and again before every edit subagent's
+start and every reviewer dispatch, discovery and verification. It prints `MODEL:` and `VENDOR:`, or one
 `BLOCKER:` line. A launch that prints none of these lines, a missing script, a missing interpreter or a crash:
 blocked; name it and stop before any dispatch; never run an improvised check instead.
 
 A `BLOCKER` line: blocked. A `VENDOR` equal to that of any reviewer in the gate's set (its locked row,
 `references/reviewer-choice.md`) stops the route and is told to the user, with no reselection. A `VENDOR` other than the recorded
-one blocks: no writer start or reuse and no review; tell the user the executor's vendor changed.
+one blocks: no edit subagent and no review; tell the user the executor's vendor changed.
 
 ## Tools
 
@@ -43,14 +44,13 @@ fresh `inherit` subagent, a ledger line.
 
 ## Route skills
 
-The list, the catalog rules and the offer of `references/executor.md`, with this runtime's state, commands and naming.
-State: `agy plugin list`. Superpowers: install `agy plugin install https://github.com/obra/superpowers` (agy does not
-read `~/.agents/skills`). Disabled (unverified): show `agy plugin enable superpowers` for the user to run, then to
-open a new session. Enabled with a skill missing (unverified): name the skill and the plugin's directory as found, the
-global `~/.gemini/config/plugins/superpowers` or the workspace `.agents/plugins/superpowers`, show `agy plugin
-uninstall superpowers` then the install command for the user to run, then to open a new session, and stop. dopil: the
-README's Antigravity lines. Skills appear as `dopil:dopil`, typed `/dopil:dopil`. Update: the same commands. Never
-`agy plugin import`: it imports every Claude Code plugin with its hooks into every agy session.
+The list and the catalog rules of `references/executor.md`, with this runtime's commands, which only the user types:
+the executor shows them and stops, and runs no `agy` command itself. Superpowers: `agy plugin install
+https://github.com/obra/superpowers` (agy does not read `~/.agents/skills`), then a new session; when it may be
+installed but disabled or missing a skill (unverified), also `agy plugin enable superpowers`, or `agy plugin uninstall
+superpowers` before the install. dopil: the README's Antigravity lines. Skills appear as `dopil:dopil`, typed
+`/dopil:dopil`. Update: the same commands. Never `agy plugin import`: it imports every Claude Code plugin with its
+hooks into every agy session.
 
 ## Instructions
 
@@ -63,55 +63,29 @@ None.
 
 ## Orca writing workers
 
-For the task executor, gate fixer, parallel fixer, polisher and escalation. The task executor:
-`ORCA orchestration worker-start --spec-file "$W/task-N-dispatch.md" --task-title "dopil impl: task N" --worktree
-"<the route's tree selector, or current on a one-off route>" --agent antigravity --model <the Identity script's MODEL>
---keep-open --json > "$W/task-N-receipt.json"`; every other role the same, with its own spec file and title. The
-model must be one `agy models` lists; otherwise Orca writing workers are unavailable: stop and tell the user. Orca
-launches `agy --model <id>` (measured), so the pin holds from the start. On that receipt: `ready` with another
-`.result.model`: stop that worker, close its terminal, show the user `git status` of the tree; no replacement without
-the user. A `.result.mode` other than `terminal` (a structured session also fills `.result.terminal`): not a usable
-start; stop that dispatch and tell the user. A start blocked at a trust prompt (a new worktree), as measured for the
-Gemini reviewer (`references/agents/antigravity/reviewer.md`, "Orca"): the user accepts it in that tab, that dispatch is
-released as `references/adapter-orca.md`, "If the worker did not start", requires, the terminal is proven gone (**Closing**),
-and the Task is restarted as **Recovery**, **A writer lost mid-task**, says.
-Handles and dispatch ids go into the SDD ledger or the gate scratch.
+None. Orca never starts `agy` for this executor: Google's terms bar another agent driving agy on consumer plans, and
+`worker-start --agent antigravity` may run it through `agy acp`. In Orca, edits stay with `invoke_subagent`, as
+`references/executor.md`, **Orca without a card**, says.
 
 ## Follow-ups
 
-Never `send`: a reopened worker loses `--model`. After the worker's `worker_done`,
-`ORCA terminal wait --terminal <its handle> --for tui-idle`, then
-`ORCA orchestration worker-start --spec-file … --terminal <the same handle>`; only a `ready` receipt for that handle
-counts. `agent_unconfigured` from `worker-start --terminal`, or a wait that finds no terminal, does not by itself
-prove the terminal gone: only after its handle is missing from an untruncated `ORCA terminal list`, or it is closed
-with `close.ptyKilled: true` (**Closing**), a replacement worker, a ledger line. A failed follow-up
-restarts its Task as **Recovery**, **A writer lost mid-task**, says; one refused before Orca created a Task
-gets a fresh start with the first assignment file plus the brief. `terminal_busy`, an unsatisfied wait on a live
-terminal, `outcome_unknown` or any other error: no new writer; `references/adapter-orca.md`, "If the worker did not start".
+None.
 
 ## Stop
 
-`ORCA orchestration worker-stop --dispatch <latest dispatchId> --json`, in the sequence of
-`references/adapter-orca.md`, "Stopping at the user's request"; its receipt's `close.ptyKilled: true` is the proof,
-and only when the stop did not close the terminal, the terminal close of **Closing** (or verified absence).
+The writers are the session's own `invoke_subagent` subagents. On the user's stop the executor starts no new one and
+waits until every running one has finished, its completion seen, before any save or rollback of
+`references/adapter-orca.md`, "Stopping at the user's request"; one it cannot see finish is named to the user, and the
+tree is left as it is.
 
 ## Recovery
 
-**Failed start.** As `references/adapter-orca.md`, "If the worker did not start", says; a model that `agy models`
-does not list stops the route and is told to the user, with no takeover.
-
-**A writer lost mid-task** (its terminal gone or closed after its `ready` receipt and before its `worker_done`) has no
-takeover by the executor's own subagent. Only after the old terminal is proven gone, as **Closing** says, is a fresh
-writer started per **Orca writing workers**, its pins kept, with `--task <its Task>` in place of `--spec-file` and any
-`--task-title`, plus `--retry-of <its dispatch id>` only when Orca reports that Task failed or blocked; a ledger line.
+A subagent that fails to start or ends without its report: once it has finished, the executor does that task inline
+itself, with a ledger line.
 
 ## Closing
 
-A writer's terminal stays through interim `worker_done` messages and is closed when its role is accepted
-or abandoned: task done, gate closed, polish accepted, escalation, failed start, user stop (after **Stop**). The close
-is `ORCA terminal close --terminal <handle> --json` returning `close.ptyKilled: true`, or else the handle missing from
-`ORCA terminal list --json` with `truncated: false`. Only these prove a writer gone: liveness `exited` or `lost` alone
-does not, and a terminal still listed is closed first.
+None.
 
 ## Pitfalls
 

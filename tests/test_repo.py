@@ -23,8 +23,6 @@ DEFERRAL = re.compile(r"As references/executor\.md, (.+)\.")
 IDENTITY_SCRIPTS = ["kimi", "antigravity"]
 KIMI_SUBAGENT_CHECK = 'python3 -I "<skill-dir>/references/agents/kimi/identity.py" <agent_id>'
 INLINE_IDENTITY = "python3 -I - <<'PY'"
-# Profile directories a card copies whole, under AGENTS: their required files, and nothing else.
-PROFILES = {"antigravity/agy-reviewer": ["settings.json", ".agents/agents/dopil-reviewer.md"]}
 # Descriptor fields by role (references/contracts.md); a field outside its role is absent.
 ALWAYS = ["Name", "Executor card", "Reviewer card"]
 EXECUTOR = ["Invocation", "Default reviewer"]
@@ -38,7 +36,7 @@ SEPARATOR = re.compile(r"[-:]+")
 AGENT_TOKEN_FIELDS = ["Name", "Reviewer name", "Binary", "Reviewer vendor", "Scratch key"]
 FIRST_TOKEN = re.compile(r"[A-Za-z0-9-]+")
 # Instruction file names the core may mention although they contain an agent's name.
-INSTRUCTION_FILES = re.compile(r"CLAUDE\.md|AGENTS\.md|GEMINI\.md")
+INSTRUCTION_FILES = re.compile(r"CLAUDE\.md|AGENTS\.md")
 # What the repository's .gitignore leaves out of the tree; none of it is part of the skill.
 IGNORED = {".DS_Store", "__pycache__", ".dopil"}
 
@@ -155,11 +153,6 @@ def in_checkout(path):
     return resolved.is_dir() and (resolved == ROOT or ROOT in resolved.parents)
 
 
-def front_matter_name(path):
-    match = re.search(r"\A---\n(?:.*\n)*?name: (\S+)\n", path.read_text(encoding="utf-8"))
-    return match.group(1) if match else None
-
-
 class RepoTest(unittest.TestCase):
     def test_manifests_required_and_discovered(self):
         problems = []
@@ -220,20 +213,6 @@ class RepoTest(unittest.TestCase):
                     elif not (folder / name).is_file():
                         problems.append("%s:%d: `%s` is neither in %s nor a run-time artifact"
                                         % (rel, number, name, folder.name))
-        for profile, required in sorted(PROFILES.items()):
-            directory, folder = AGENTS / profile, AGENTS / profile.split("/")[0]
-            inside = sorted(path.relative_to(directory).as_posix() for path in scanned if directory in path.parents)
-            for name in required:
-                if name not in inside:
-                    problems.append("%s/%s: required profile file missing" % (profile, name))
-            for name in inside:
-                if name not in required:
-                    problems.append("%s/%s: not a profile file" % (profile, name))
-            for card in named_cards(found.get(folder.name, {})):
-                text = texts.get(folder / card, "")
-                if directory.name in text:
-                    problems.extend("%s/%s: names %s but not %s" % (folder.name, card, directory.name, name)
-                                    for name in inside if name not in text)
         for path in scanned:
             folder = agent_folder(path)
             if folder is None:
@@ -241,9 +220,7 @@ class RepoTest(unittest.TestCase):
             name, cards = path.relative_to(folder).as_posix(), named_cards(found.get(folder.name, {}))
             if name == "agent.md" or name in cards:
                 continue
-            head, _, rest = name.partition("/")
-            if not any(name in text or rest and head in text and rest in text
-                       for text in (texts.get(folder / card, "") for card in cards)):
+            if not any(name in texts.get(folder / card, "") for card in cards):
                 problems.append("%s: named by neither its descriptor nor one of its cards"
                                 % path.relative_to(ROOT).as_posix())
         for path in scanned:
@@ -440,34 +417,13 @@ class RepoTest(unittest.TestCase):
                 problems.append("%s: Default reviewer %r has the executor's own vendor" % (folder, default))
         self.assertEqual(problems, [])
 
-    def test_descriptor_values_of_the_four(self):
+    def test_released_descriptor_values(self):
         # Released Scratch keys and Finding prefixes never change: saved routes name them.
-        expected = {"claude-code": ("claude", "A"), "codex": ("codex", "C"), "kimi": ("kimi", "K"),
-                    "antigravity": ("gemini", "G")}
+        expected = {"claude-code": ("claude", "A"), "codex": ("codex", "C"), "kimi": ("kimi", "K")}
         found = descriptors()
         released = {folder: tuple(found.get(folder, {}).get(field) for field in ["Scratch key", "Finding prefix"])
                     for folder in expected}
         self.assertEqual(released, expected)
-
-    def test_antigravity_reviewer_names_agree(self):
-        # The Antigravity card runs its one profile by its declared name; its rm -rf guards take its mktemp's shape.
-        profiles = AGENTS / "antigravity" / "agy-reviewer" / ".agents" / "agents"
-        files = sorted(path.name for path in profiles.iterdir())
-        self.assertEqual(len(files), 1, files)
-        card = (AGENTS / "antigravity" / "reviewer.md").read_text(encoding="utf-8")
-        launched = re.findall(r"agy_iso --agent (\S+)", card)
-        self.assertTrue(launched, "the card launches the profile")
-        checked = re.findall(r'init\.get\("agent"\) == "([^"]+)"', card)
-        self.assertTrue(checked, "the card checks the profile it ran")
-        self.assertEqual(set(launched) | set(checked), {front_matter_name(profiles / files[0])})
-        hashed = re.findall(r"\.agents/agents/(\S+\.md)", card)
-        self.assertTrue(hashed, "the card pins the profile file")
-        self.assertEqual(set(hashed), set(files))
-        created = re.findall(r'mktemp -d "\$\{TMPDIR:-/tmp\}/([\w-]+)\.(X+)"', card)
-        accepted = re.findall(r"\*/([\w-]+)\.(\?+)\)", card)
-        self.assertEqual(len(created), 1, created)
-        self.assertEqual(len(accepted), 2, "the blocker removal and the gate end accept the shape")
-        self.assertEqual({(name, len(mark)) for name, mark in accepted}, {(created[0][0], len(created[0][1]))})
 
 
 if __name__ == "__main__":
